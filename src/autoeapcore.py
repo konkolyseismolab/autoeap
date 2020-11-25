@@ -547,7 +547,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
                 lclist[variableindex].__class__ = k2sc_lc
-                period, fap = psearch(lclist[variableindex].time,lclist[variableindex].flux,min_p=0,max_p=4)
+                period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=4)
 
                 lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
 

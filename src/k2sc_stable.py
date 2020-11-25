@@ -296,7 +296,7 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
         dataset = K2Data(self.targetid,
                  time = self.time.value,
                       cadence = self.cadenceno,
-                      quality = self.quality,
+                      quality = self.quality.value,
                       fluxes  = self.flux.value,
                       errors  = self.flux_err.value,
                       x       = x,

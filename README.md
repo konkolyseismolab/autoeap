@@ -10,7 +10,7 @@ To install the package, use:
 ```bash
 git clone https://github.com/zabop/autoeap
 cd autoeap
-python  setup.py install --user
+python  setup.py install
 ```
 
 ## Data Access

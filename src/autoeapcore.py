@@ -45,7 +45,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     fig = plt.figure()
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.imshow(np.log(20+tpf.flux[cadence]),cmap='viridis',origin='lower')
+        plt.imshow(np.log(20+tpf.flux[cadence].value),cmap='viridis',origin='lower')
 
     ax=plt.gca()
 
@@ -269,7 +269,7 @@ def tpfplot(tpf,apindex,apertures,aps):
     plt.title('Frame: '+str(apindex),fontsize=24)
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.pcolormesh(np.log(20+tpf.flux[apindex]), cmap='viridis')
+        plt.pcolormesh(np.log(20+tpf.flux[apindex].value), cmap='viridis')
 
     filtered=apdrawer(apertures)
     for x in range(len(filtered)):
@@ -435,6 +435,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     import scipy.ndimage.measurements as snm
     import os
+    from astropy.io import ascii
 
     countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
@@ -565,17 +566,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux.value,window_length=window_length)
                     if save_lc:
                         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc')
-                        df = lclist[variableindex].to_pandas(columns=['time','flux','flux_err','corr_flux'])[['time','flux','flux_err','corr_flux']]
-                        df['splined_flux'] = splinedLC
-                        df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc',index=False)
+                        table = lclist[variableindex].to_table()['time','flux','flux_err','corr_flux']
+                        table['splined_flux'] = splinedLC
+                        ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc',overwrite=True)
 
                     print('Done')
                     return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
 
                 if save_lc:
                     print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc')
-                    df = lclist[variableindex].to_pandas(columns=['time','flux','flux_err','corr_flux'])[['time','flux','flux_err','corr_flux']]
-                    df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc',index=False)
+                    table = lclist[variableindex].to_table()['time','flux','flux_err','corr_flux']
+                    ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc',overwrite=True)
 
                 print('Done')
                 return lclist[variableindex].time.value, lclist[variableindex].corr_flux.value, lclist[variableindex].flux_err.value
@@ -587,17 +588,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].flux.value,window_length=window_length)
         if save_lc:
             print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc')
-            df = lclist[variableindex].to_pandas()[['time','flux','flux_err']]
-            df['splined_flux'] = splinedLC
-            df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc',index=False)
+            table = lclist[variableindex].to_table()['time','flux','flux_err']
+            table['splined_flux'] = splinedLC
+            ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc',overwrite=True)
 
         print('Done')
         return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
 
     if save_lc:
         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc')
-        df = lclist[variableindex].to_pandas()[['time','flux','flux_err']]
-        df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc',index=False)
+        table = lclist[variableindex].to_table()['time','flux','flux_err']
+        ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc',overwrite=True)
 
     print('Done')
     return lclist[variableindex].time.value, lclist[variableindex].flux.value, lclist[variableindex].flux_err.value

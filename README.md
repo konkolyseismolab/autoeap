@@ -11,6 +11,10 @@ A short summary of automatization is published [here](https://ui.adsabs.harvard.
 To install the package, use:
 
 ```bash
+pip install git+https://github.com/zabop/autoeap
+```
+if you fail, try instead:
+```bash
 git clone https://github.com/zabop/autoeap
 cd autoeap
 python  setup.py install

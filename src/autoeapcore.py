@@ -330,7 +330,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
             #if each<(0.5*nyquist) and 0.1<each:
             if 0.1<each:
                 chopped_freq.append(each)
-                chopped_power.append(power[index])
+                chopped_power.append(power[index].value)
 
         chopped_power_max_over_mean.append(np.max(chopped_power)/np.mean(chopped_power))
     #plt.ylim([-0.1,0.8])

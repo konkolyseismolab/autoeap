@@ -176,7 +176,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
 
     print('Optimizing apertures for each cadence')
     # Segment targets for each cadence
-    countergrid_all = np.zeros_like(tpf.flux[0],dtype=np.int)
+    countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Switch off warnings fo detected nan,inf values
         with warnings.catch_warnings(record=True) as w:

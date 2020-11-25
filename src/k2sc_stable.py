@@ -312,4 +312,4 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
         self.tr_position = results.tr_position
         self.tr_time = results.tr_time
         self.pv = results.pv # hyperparameters
-        self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
+        self.corr_flux = self.flux.value - self.tr_position + np.nanmedian(self.tr_position)

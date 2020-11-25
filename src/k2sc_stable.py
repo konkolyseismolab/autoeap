@@ -290,15 +290,15 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
 
     def get_k2data(self):
         try:
-            x, y = self.pos_corr1, self.pos_corr2
+            x, y = self.pos_corr1.value, self.pos_corr2.value
         except:
-            x, y = self.centroid_col, self.centroid_row
+            x, y = self.centroid_col.value, self.centroid_row.value
         dataset = K2Data(self.targetid,
-                 time = self.time,
+                 time = self.time.value,
                       cadence = self.cadenceno,
                       quality = self.quality,
-                      fluxes  = self.flux,
-                      errors  = self.flux_err,
+                      fluxes  = self.flux.value,
+                      errors  = self.flux_err.value,
                       x       = x,
                       y       = y,
                       primary_header = self.primary_header,

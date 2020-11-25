@@ -290,20 +290,35 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
 
     def get_k2data(self):
         try:
-            x, y = self.pos_corr1.value, self.pos_corr2.value
+            try: x, y = self.pos_corr1.value, self.pos_corr2.value
+            except AttributeError: self.pos_corr1, self.pos_corr2
         except:
-            x, y = self.centroid_col.value, self.centroid_row.value
-        dataset = K2Data(self.targetid,
-                      time    = self.time.value,
-                      cadence = self.cadenceno,
-                      quality = self.quality.value,
-                      fluxes  = self.flux.value,
-                      errors  = self.flux_err.value,
-                      x       = x,
-                      y       = y,
-                      primary_header = self.primary_header,
-                      data_header    = self.data_header,
-                      campaign       = self.campaign)
+            try: x, y = self.centroid_col.value, self.centroid_row.value
+            except AttributeError: x, y = self.centroid_col, self.centroid_row
+        try:
+            dataset = K2Data(self.targetid,
+                          time    = self.time.value,
+                          cadence = self.cadenceno,
+                          quality = self.quality.value,
+                          fluxes  = self.flux.value,
+                          errors  = self.flux_err.value,
+                          x       = x,
+                          y       = y,
+                          primary_header = self.primary_header,
+                          data_header    = self.data_header,
+                          campaign       = self.campaign)
+        except AttributeError:
+            dataset = K2Data(self.targetid,
+                          time    = self.time,
+                          cadence = self.cadenceno,
+                          quality = self.quality,
+                          fluxes  = self.flux,
+                          errors  = self.flux_err,
+                          x       = x,
+                          y       = y,
+                          primary_header = self.primary_header,
+                          data_header    = self.data_header,
+                          campaign       = self.campaign)
         return dataset
 
     def k2sc(self,**kwargs):
@@ -312,4 +327,7 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
         self.tr_position = results.tr_position
         self.tr_time = results.tr_time
         self.pv = results.pv # hyperparameters
-        self.corr_flux = self.flux.value - self.tr_position + np.nanmedian(self.tr_position)
+        try:
+            self.corr_flux = self.flux.value - self.tr_position + np.nanmedian(self.tr_position)
+        except AttributeError:
+            self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)

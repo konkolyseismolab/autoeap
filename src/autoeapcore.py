@@ -6,6 +6,11 @@ developed for K2 RR Lyrae stars.
 import numpy as np
 import matplotlib.pyplot as plt
 import lightkurve
+import warnings
+
+class autoeapFutureWarning(Warning):
+    """Class for knowing that LightKurve 2.x fucked up my life."""
+    pass
 
 def apdrawer(limitc):
     intgrid=limitc*1
@@ -37,7 +42,6 @@ def apdrawer(limitc):
 
 
 def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots=False):
-    import warnings
 
     colnums = np.arange( tpf.column, tpf.column+tpf.shape[2])
     rownums = np.arange( tpf.row,    tpf.row   +tpf.shape[1])
@@ -45,7 +49,8 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     fig = plt.figure()
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.imshow(np.log(20+tpf.flux[cadence].value),cmap='viridis',origin='lower')
+        try: plt.imshow(np.log(20+tpf.flux[cadence].value),cmap='viridis',origin='lower')
+        except AttributeError: plt.imshow(np.log(20+tpf.flux[cadence]),cmap='viridis',origin='lower')
 
     ax=plt.gca()
 
@@ -88,7 +93,6 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
 
     from sklearn.cluster import DBSCAN
     import matplotlib.gridspec as gridspec
-    import warnings
     from lightkurve.utils import LightkurveWarning
     import os
     if isnotebook(): from tqdm.notebook import tqdm
@@ -128,8 +132,14 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     campaignnum=tpf.campaign
 
     print('Finding PSF centroids and removing outliers')
-    psfc1 = tpf.estimate_centroids()[0].value
-    psfc2 = tpf.estimate_centroids()[1].value
+    try:
+        psfc1 = tpf.estimate_centroids()[0].value
+        psfc2 = tpf.estimate_centroids()[1].value
+    except AttributeError:
+        warnings.warn('LightKurve version 2.x will force all numeric columns as Quantity',
+                    autoeapFutureWarning)
+        psfc1 = tpf.estimate_centroids()[0]
+        psfc2 = tpf.estimate_centroids()[1]
 
     # Remove wrong cadences via detecting outlier photocenters
     if len(np.where(np.abs(psfc1)>1024)[0])==0 and len(np.where(np.abs(psfc2)>1024)[0])==0:
@@ -159,15 +169,23 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         ax0.set_xlabel('PSF CENTR1',fontsize=14)
         ax0.set_ylabel('PSF CENTR2',fontsize=14)
 
-        ax1.scatter(tpf.time.value,psfc1,s=5)
-        ax1.scatter(tpf.time[np.where(core_samples_mask == False)].value,psfc1[np.where(core_samples_mask == False)],s=5,c='r')
+        try:
+            ax1.scatter(tpf.time.value,psfc1,s=5)
+            ax1.scatter(tpf.time[np.where(core_samples_mask == False)].value,psfc1[np.where(core_samples_mask == False)],s=5,c='r')
+        except AttributeError:
+            ax1.scatter(tpf.time,psfc1,s=5)
+            ax1.scatter(tpf.time[np.where(core_samples_mask == False)],psfc1[np.where(core_samples_mask == False)],s=5,c='r')
         ax1.set_xlabel('BJD',fontsize=14)
         ax1.set_ylabel('PSF\nCENTR1',fontsize=14)
         ax1.xaxis.tick_top()
         ax1.xaxis.set_label_position('top')
 
-        ax2.scatter(psfc2, tpf.time.value,s=5)
-        ax2.scatter(psfc2[np.where(core_samples_mask == False)],tpf.time[np.where(core_samples_mask == False)].value,s=5,c='r')
+        try:
+            ax2.scatter(psfc2, tpf.time.value,s=5)
+            ax2.scatter(psfc2[np.where(core_samples_mask == False)],tpf.time[np.where(core_samples_mask == False)].value,s=5,c='r')
+        except AttributeError:
+            ax2.scatter(psfc2, tpf.time,s=5)
+            ax2.scatter(psfc2[np.where(core_samples_mask == False)],tpf.time[np.where(core_samples_mask == False)],s=5,c='r')
         ax2.set_xlabel('PSF CENTR2',fontsize=14)
         ax2.set_ylabel('BJD',fontsize=14)
         if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png')
@@ -176,7 +194,8 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
 
     print('Optimizing apertures for each cadence')
     # Segment targets for each cadence
-    countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
+    try: countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
+    except AttributeError: countergrid_all = np.zeros_like(tpf.flux[0],dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Switch off warnings fo detected nan,inf values
         with warnings.catch_warnings(record=True) as w:
@@ -263,13 +282,12 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
 
 def tpfplot(tpf,apindex,apertures,aps):
 
-    import warnings
-
     fig = plt.figure()
     plt.title('Frame: '+str(apindex),fontsize=24)
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.pcolormesh(np.log(20+tpf.flux[apindex].value), cmap='viridis')
+        try: plt.pcolormesh(np.log(20+tpf.flux[apindex].value), cmap='viridis')
+        except AttributeError: plt.pcolormesh(np.log(20+tpf.flux[apindex]), cmap='viridis')
 
     filtered=apdrawer(apertures)
     for x in range(len(filtered)):
@@ -326,11 +344,16 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
 
         chopped_freq=[]
         chopped_power=[]
-        for index, each in enumerate(frequency.value):
+        try:
+            frequency = frequency.value
+            power = power.value
+        except AttributeError:
+            pass
+        for index, each in enumerate(frequency):
             #if each<(0.5*nyquist) and 0.1<each:
             if 0.1<each:
                 chopped_freq.append(each)
-                chopped_power.append(power[index].value)
+                chopped_power.append(power[index])
 
         chopped_power_max_over_mean.append(np.max(chopped_power)/np.mean(chopped_power))
     #plt.ylim([-0.1,0.8])
@@ -502,7 +525,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x]).remove_nans().remove_outliers()
             lclist.append(lc)
 
-            axs[x,0].plot(lc.time.value,lc.flux.value)
+            try: axs[x,0].plot(lc.time.value,lc.flux.value)
+            except AttributeError: axs[x,0].plot(lc.time,lc.flux)
             axs[x,0].title.set_text('Target '+str(x+1))
             axs[x,0].set_xlabel('Time',fontsize=20)
             axs[x,0].set_ylabel('Flux',fontsize=20)
@@ -514,7 +538,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots)
         if save_plots or show_plots:
             fig = plt.figure(figsize=(20,4))
-            plt.plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
+            try: plt.plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
+            except AttributeError: plt.plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
             plt.xlabel('Time')
             plt.ylabel('Flux')
             plt.title('The lc which is identified as a variable')
@@ -547,13 +572,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
                 lclist[variableindex].__class__ = k2sc_lc
-                period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=4)
+                try:
+                    period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=4)
+                except AttributeError:
+                    period, fap = psearch(lclist[variableindex].time,lclist[variableindex].flux,min_p=0,max_p=4)
 
                 lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
 
                 if save_plots or show_plots:
                     fig = plt.figure(figsize=(20,4))
-                    plt.plot(lclist[variableindex].time.value,lclist[variableindex].corr_flux)
+                    try: plt.plot(lclist[variableindex].time.value,lclist[variableindex].corr_flux)
+                    except AttributeError: plt.plot(lclist[variableindex].time,lclist[variableindex].corr_flux)
                     plt.title('K2SC corrected lc for '+targettpf)
                     plt.xlabel('Time')
                     plt.ylabel('Flux')
@@ -563,7 +592,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 if remove_spline:
                     print('Removing spline')
-                    splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux,window_length=window_length)
+                    try:
+                        splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux,window_length=window_length)
+                    except AttributeError:
+                        splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].corr_flux,window_length=window_length)
                     if save_lc:
                         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc')
                         table = lclist[variableindex].to_table()['time','flux','flux_err']
@@ -572,7 +604,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc',overwrite=True)
 
                     print('Done')
-                    return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
+                    try:
+                        return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
+                    except AttributeError:
+                        return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
 
                 if save_lc:
                     print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc')
@@ -581,13 +616,19 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc',overwrite=True)
 
                 print('Done')
-                return lclist[variableindex].time.value, lclist[variableindex].corr_flux, lclist[variableindex].flux_err.value
+                try:
+                    return lclist[variableindex].time.value, lclist[variableindex].corr_flux, lclist[variableindex].flux_err.value
+                except AttributeError:
+                    return lclist[variableindex].time, lclist[variableindex].corr_flux, lclist[variableindex].flux_err
 
             break
 
     if remove_spline:
         print('Removing spline')
-        splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].flux.value,window_length=window_length)
+        try:
+            splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].flux.value,window_length=window_length)
+        except AttributeError:
+            splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].flux,window_length=window_length)
         if save_lc:
             print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc')
             table = lclist[variableindex].to_table()['time','flux','flux_err']
@@ -595,7 +636,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc',overwrite=True)
 
         print('Done')
-        return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
+        try:
+            return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
+        except AttributeError:
+            return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
 
     if save_lc:
         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc')
@@ -603,4 +647,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc',overwrite=True)
 
     print('Done')
-    return lclist[variableindex].time.value, lclist[variableindex].flux.value, lclist[variableindex].flux_err.value
+    try:
+        return lclist[variableindex].time.value, lclist[variableindex].flux.value, lclist[variableindex].flux_err.value
+    except AttributeError:
+        return lclist[variableindex].time, lclist[variableindex].flux, lclist[variableindex].flux_err

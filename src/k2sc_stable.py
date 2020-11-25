@@ -294,7 +294,7 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
         except:
             x, y = self.centroid_col.value, self.centroid_row.value
         dataset = K2Data(self.targetid,
-                 time = self.time.value,
+                      time    = self.time.value,
                       cadence = self.cadenceno,
                       quality = self.quality.value,
                       fluxes  = self.flux.value,
@@ -302,8 +302,8 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
                       x       = x,
                       y       = y,
                       primary_header = self.primary_header,
-                      data_header = self.data_header,
-                      campaign=self.campaign)
+                      data_header    = self.data_header,
+                      campaign       = self.campaign)
         return dataset
 
     def k2sc(self,**kwargs):

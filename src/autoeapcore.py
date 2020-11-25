@@ -566,7 +566,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux,window_length=window_length)
                     if save_lc:
                         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc')
-                        table = lclist[variableindex].to_table()['time','flux','flux_err','corr_flux']
+                        table = lclist[variableindex].to_table()['time','flux','flux_err']
+                        table['corr_flux'] = lclist[variableindex].corr_flux
                         table['splined_flux'] = splinedLC
                         ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc',overwrite=True)
 
@@ -575,7 +576,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 if save_lc:
                     print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc')
-                    table = lclist[variableindex].to_table()['time','flux','flux_err','corr_flux']
+                    table = lclist[variableindex].to_table()['time','flux','flux_err']
+                    table['corr_flux'] = lclist[variableindex].corr_flux
                     ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc',overwrite=True)
 
                 print('Done')

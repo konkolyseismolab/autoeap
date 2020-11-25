@@ -501,7 +501,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x]).remove_nans().remove_outliers()
             lclist.append(lc)
 
-            axs[x,0].plot(lc.time,lc.flux)
+            axs[x,0].plot(lc.time.value,lc.flux.value)
             axs[x,0].title.set_text('Target '+str(x+1))
             axs[x,0].set_xlabel('Time',fontsize=20)
             axs[x,0].set_ylabel('Flux',fontsize=20)

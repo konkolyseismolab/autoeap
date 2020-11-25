@@ -49,7 +49,7 @@ Plotting our results gives:
 plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 ```
-![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/example_scatter_plot2.png)
+![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_raw.png)
 
 The details of the workflow is described in [docs](https://github.com/zabop/autoeap/tree/master/docs).
 
@@ -70,7 +70,7 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True)
 
 The result is quite delightful:
 
-![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/k2sczett_ktwo212466080-c17_lpd-targ.fits.png)
+![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.png)
 
 ### Apply spline correction
 We have also built-in a method to remove trends using low-order splines. Just do to correct the raw light curve:

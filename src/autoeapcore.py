@@ -553,7 +553,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 if save_plots or show_plots:
                     fig = plt.figure(figsize=(20,4))
-                    plt.plot(lclist[variableindex].time.value,lclist[variableindex].corr_flux.value)
+                    plt.plot(lclist[variableindex].time.value,lclist[variableindex].corr_flux)
                     plt.title('K2SC corrected lc for '+targettpf)
                     plt.xlabel('Time')
                     plt.ylabel('Flux')
@@ -563,7 +563,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 if remove_spline:
                     print('Removing spline')
-                    splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux.value,window_length=window_length)
+                    splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux,window_length=window_length)
                     if save_lc:
                         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc')
                         table = lclist[variableindex].to_table()['time','flux','flux_err','corr_flux']
@@ -579,7 +579,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     ascii.write(table,targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc',overwrite=True)
 
                 print('Done')
-                return lclist[variableindex].time.value, lclist[variableindex].corr_flux.value, lclist[variableindex].flux_err.value
+                return lclist[variableindex].time.value, lclist[variableindex].corr_flux, lclist[variableindex].flux_err.value
 
             break
 

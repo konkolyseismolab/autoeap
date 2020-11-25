@@ -60,6 +60,8 @@ plt.scatter(time,flux,marker='+',c='r')
 
 The details of the workflow is described in [docs](https://github.com/zabop/autoeap/tree/master/docs).
 
+You can find Google Colab friendly tutorial [in the examples](https://github.com/zabop/autoeap/tree/master/examples).
+
 ### Apply K2 Systematics Correction (K2SC)
 If you want to apply K2SC correction for your freshly made raw-photometry, first you should install [K2SC](https://github.com/OxES/k2sc). AutoEAP is based on that package, so if you find K2SC useful, please cite [Aigrain et al.,2016,MNRAS,459,2408](https://ui.adsabs.harvard.edu/abs/2016MNRAS.459.2408A/abstract).
 
@@ -96,7 +98,7 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
  - `apply_K2SC` If `True`, after the raw photomery, K2SC will be applied to remove systematics from the extracted light curve.
  - `remove_spline` If `True`, after the raw photomery, a low-order spline will be fitted and removed from the extracted light curve. If ``apply_K2SC`` is also `True`, then this step will be done after the K2SC.
  - `save_lc` If `True`, the final light curve will be save as a file.
- - `campaign` : If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign.
+ - `campaign` If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign.
  - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`.
  - `show_plots` If `True`, all the plots will be displayed.
  - `save_plots` If `True`, all the plots will be saved to a subdirectory.

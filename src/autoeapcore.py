@@ -159,15 +159,15 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         ax0.set_xlabel('PSF CENTR1',fontsize=14)
         ax0.set_ylabel('PSF CENTR2',fontsize=14)
 
-        ax1.scatter(tpf.time,psfc1,s=5)
-        ax1.scatter(tpf.time[np.where(core_samples_mask == False)],psfc1[np.where(core_samples_mask == False)],s=5,c='r')
+        ax1.scatter(tpf.time.value,psfc1,s=5)
+        ax1.scatter(tpf.time[np.where(core_samples_mask == False)].value,psfc1[np.where(core_samples_mask == False)],s=5,c='r')
         ax1.set_xlabel('BJD',fontsize=14)
         ax1.set_ylabel('PSF\nCENTR1',fontsize=14)
         ax1.xaxis.tick_top()
         ax1.xaxis.set_label_position('top')
 
-        ax2.scatter(psfc2, tpf.time,s=5)
-        ax2.scatter(psfc2[np.where(core_samples_mask == False)],tpf.time[np.where(core_samples_mask == False)],s=5,c='r')
+        ax2.scatter(psfc2, tpf.time.value,s=5)
+        ax2.scatter(psfc2[np.where(core_samples_mask == False)],tpf.time[np.where(core_samples_mask == False)].value,s=5,c='r')
         ax2.set_xlabel('PSF CENTR2',fontsize=14)
         ax2.set_ylabel('BJD',fontsize=14)
         if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png')
@@ -513,7 +513,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots)
         if save_plots or show_plots:
             fig = plt.figure(figsize=(20,4))
-            plt.plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
+            plt.plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
             plt.xlabel('Time')
             plt.ylabel('Flux')
             plt.title('The lc which is identified as a variable')
@@ -552,7 +552,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 if save_plots or show_plots:
                     fig = plt.figure(figsize=(20,4))
-                    plt.plot(lclist[variableindex].time,lclist[variableindex].corr_flux)
+                    plt.plot(lclist[variableindex].time.value,lclist[variableindex].corr_flux.value)
                     plt.title('K2SC corrected lc for '+targettpf)
                     plt.xlabel('Time')
                     plt.ylabel('Flux')
@@ -562,7 +562,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 if remove_spline:
                     print('Removing spline')
-                    splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].corr_flux,window_length=window_length)
+                    splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux.value,window_length=window_length)
                     if save_lc:
                         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc')
                         df = lclist[variableindex].to_pandas(columns=['time','flux','flux_err','corr_flux'])[['time','flux','flux_err','corr_flux']]
@@ -570,7 +570,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc_spline.lc',index=False)
 
                     print('Done')
-                    return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
+                    return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
 
                 if save_lc:
                     print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc')
@@ -578,13 +578,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'_k2sc.lc',index=False)
 
                 print('Done')
-                return lclist[variableindex].time, lclist[variableindex].corr_flux, lclist[variableindex].flux_err
+                return lclist[variableindex].time.value, lclist[variableindex].corr_flux.value, lclist[variableindex].flux_err.value
 
             break
 
     if remove_spline:
         print('Removing spline')
-        splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].flux,window_length=window_length)
+        splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].flux.value,window_length=window_length)
         if save_lc:
             print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc')
             df = lclist[variableindex].to_pandas()[['time','flux','flux_err']]
@@ -592,7 +592,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'_spline.lc',index=False)
 
         print('Done')
-        return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
+        return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
 
     if save_lc:
         print('Saving lc as '+targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc')
@@ -600,4 +600,4 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         df.to_csv(targettpf+'_autoEAP_lc_TH'+str(TH)+'.lc',index=False)
 
     print('Done')
-    return lclist[variableindex].time, lclist[variableindex].flux, lclist[variableindex].flux_err
+    return lclist[variableindex].time.value, lclist[variableindex].flux.value, lclist[variableindex].flux_err.value

@@ -326,7 +326,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
 
         chopped_freq=[]
         chopped_power=[]
-        for index, each in enumerate(frequency):
+        for index, each in enumerate(frequency.value):
             #if each<(0.5*nyquist) and 0.1<each:
             if 0.1<each:
                 chopped_freq.append(each)

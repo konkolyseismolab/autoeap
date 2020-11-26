@@ -1,3 +1,4 @@
+[![pip](https://img.shields.io/badge/pip-install%20autoeap-blue.svg)](https://pypi.org/project/autoeap/)
 [![Image](https://img.shields.io/badge/tutorials-%E2%9C%93-blue.svg)](https://github.com/zabop/autoeap/tree/master/examples)
 [![Image](https://img.shields.io/badge/arXiv-1909.00446-blue.svg)](https://arxiv.org/abs/1909.00446)
 
@@ -11,13 +12,7 @@ A short summary of automatization is published [here](https://ui.adsabs.harvard.
 To install the package, use:
 
 ```bash
-pip install git+https://github.com/zabop/autoeap
-```
-if you fail, try instead:
-```bash
-git clone https://github.com/zabop/autoeap
-cd autoeap
-python  setup.py install
+pip install autoeap
 ```
 
 ## Example usage

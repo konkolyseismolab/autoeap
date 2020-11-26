@@ -22,8 +22,8 @@ python  setup.py install
 
 ## Example usage
 
-To create your own photomery, you'll need a Target Pixel File, such as [this one.](https://github.com/zabop/autoeap/blob/master/docs/ktwo212466080-c17_lpd-targ.fits)
-Then you can do:
+To create your own photomery, you'll need a Target Pixel File, such as [this one.](https://github.com/zabop/autoeap/blob/master/examples/ktwo212466080-c17_lpd-targ.fits)
+Then, after starting python, you can do:
 
 ```python
 yourtpf = '/path/to/your/tpf/ktwo212466080-c17_lpd-targ.fits'
@@ -44,8 +44,10 @@ time, flux, flux_err = autoeap.createlightcurve(targetID,campaign=campaign)
 
 Plotting our results gives:
 ```python
+import matplotlib.pyplot as plt
 plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
+plt.show()
 ```
 ![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_raw.png)
 
@@ -62,7 +64,7 @@ git clone https://github.com/OxES/k2sc.git
 cd k2sc
 python setup.py install --user
 ```
-And then without much hassle, you can use:
+And then without much hassle, you can use in python:
 ```python
 import autoeap
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True)

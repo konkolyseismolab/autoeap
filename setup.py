@@ -1,7 +1,8 @@
 from setuptools import setup
 from os import path
 
-__version__ = None
+path.insert(0, "autoeap")
+from version import __version__
 
 # Load requirements
 requirements = None

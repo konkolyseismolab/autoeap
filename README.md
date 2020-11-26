@@ -20,15 +20,6 @@ cd autoeap
 python  setup.py install
 ```
 
-## Data Access
-
-We provide photometry for targets for the following Guest Observation Programs:
-```GO12111,GO8037,GO13111,GO14058,GO6082,GO16058,GO18033,GO10037,GO15058,GO17033.```
-
-Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://keplerscience.arc.nasa.gov/k2-approved-programs.html)
-
-The data we have already created have been uploaded to our [webpage](https://konkoly.hu/KIK/data_en.html).
-
 ## Example usage
 
 To create your own photomery, you'll need a Target Pixel File, such as [this one.](https://github.com/zabop/autoeap/blob/master/docs/ktwo212466080-c17_lpd-targ.fits)
@@ -103,6 +94,15 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
  - `show_plots` If `True`, all the plots will be displayed.
  - `save_plots` If `True`, all the plots will be saved to a subdirectory.
  - `window_length` The length of filter window for spline correction given in days. Applies only if ``remove_spline`` is `True`. Default is `20` days.
+ 
+## Data Access
+
+We provide photometry for targets for the following Guest Observation Programs:
+```GO12111,GO8037,GO13111,GO14058,GO6082,GO16058,GO18033,GO10037,GO15058,GO17033.```
+
+Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://keplerscience.arc.nasa.gov/k2-approved-programs.html)
+
+The data we have already created have been uploaded to our [webpage](https://konkoly.hu/KIK/data_en.html).
 
 ## Contributing
 Feel free to open PR / Issue, or contact me [here](https://twitter.com/palszab) or [here](ps738@cam.ac.uk).

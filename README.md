@@ -71,7 +71,12 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True)
 ```
 
 The result is quite delightful:
-
+```python
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10,5))
+plt.scatter(time,flux,marker='+',c='r')
+plt.show()
+```
 ![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.png)
 
 ### Apply spline correction

@@ -320,9 +320,6 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     #iterationnum is a one based index, the number of the lc is zero based indexed
     chopped_power_max_over_mean=[]
 
-    maxpowerlist=[]
-    minpowerlist=[]
-
     nrows = len(lclist)
     fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
     for ii,lc in enumerate(lclist):
@@ -339,9 +336,6 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         axs[ii,0].set_ylim(bottom=0)
         axs[ii,0].legend()
 
-        maxpowerlist.append(np.max(power[10:]))
-        minpowerlist.append(np.min(power[10:]))
-
         chopped_freq=[]
         chopped_power=[]
         try:
@@ -350,8 +344,8 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         except AttributeError:
             pass
         for index, each in enumerate(frequency):
-            #if each<(0.5*nyquist) and 0.1<each:
-            if 0.1<each:
+            # Period must be shorten than half of data length
+            if 2/lc.time.ptp()<each:
                 chopped_freq.append(each)
                 chopped_power.append(power[index])
 

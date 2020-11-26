@@ -23,7 +23,7 @@ python  setup.py install
 ## Example usage
 
 To create your own photomery, you'll need a Target Pixel File, such as [this one.](https://github.com/zabop/autoeap/blob/master/examples/ktwo212466080-c17_lpd-targ.fits)
-Then, after starting python, you can do:
+Then, after starting Python, you can do:
 
 ```python
 yourtpf = '/path/to/your/tpf/ktwo212466080-c17_lpd-targ.fits'

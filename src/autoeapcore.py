@@ -340,8 +340,6 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         axs[ii,0].set_ylim(bottom=0)
         axs[ii,0].legend()
 
-        chopped_freq=[]
-        chopped_power=[]
         try:
             frequency = frequency.value
             power = power.value

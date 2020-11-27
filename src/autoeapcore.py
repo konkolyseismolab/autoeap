@@ -322,7 +322,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     print('Iteration:', iterationnum)
 
     #iterationnum is a one based index, the number of the lc is zero based indexed
-    chopped_power_max_over_mean=[]
+    max_over_mean=[]
 
     nrows = len(lclist)
     fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
@@ -347,20 +347,19 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
             power = power.value
         except AttributeError:
             pass
-        for index, each in enumerate(frequency):
-            # Period must be shorten than half of data length
-            if 2/lc.time.ptp()<each:
-                chopped_freq.append(each)
-                chopped_power.append(power[index])
 
-        chopped_power_max_over_mean.append(np.max(chopped_power)/np.mean(chopped_power))
+        # Period must be shorten than half of data length
+        power     = power[    2/lc.time.ptp() < frequency]
+        frequency = frequency[2/lc.time.ptp() < frequency]
+
+        max_over_mean.append(np.max(power)/np.mean(frequency))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
     if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
 
-    return np.where(chopped_power_max_over_mean==np.max(chopped_power_max_over_mean))[0][0]
+    return np.argmax(max_over_mean)
 
 
 def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):

@@ -332,7 +332,14 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
     for ii,lc in enumerate(lclist):
 
+        # First, remove a trend
         ls =  LombScargle(lc.time, lc.flux)
+        frequency, power = ls.autopower(normalization='psd',
+                                        maximum_frequency=2/lc.time.ptp(), samples_per_peak=30)
+
+        model = ls.model(lc.time, frequency[np.argmax(power)])
+
+        ls =  LombScargle(lc.time, lc.flux-model)
         frequency, power = ls.autopower(normalization='psd',
                                         minimum_frequency=2/lc.time.ptp(),
                                         nyquist_factor=1)

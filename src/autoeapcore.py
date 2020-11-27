@@ -194,9 +194,16 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
 
     print('Optimizing apertures for each cadence')
     # Segment targets for each cadence
-    try: countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
-    except AttributeError: countergrid_all = np.zeros_like(tpf.flux[0],dtype=np.int)
+    try:
+        countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
+        mask_saturated  = np.zeros_like(tpf.flux[0].value,dtype=np.int)
+    except AttributeError:
+        countergrid_all = np.zeros_like(tpf.flux[0],dtype=np.int)
+        mask_saturated  = np.zeros_like(tpf.flux[0],dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
+        # Mask saturated pixels
+        mask_saturated[tpfdata>180000] = 1
+        tpfdata[       tpfdata>180000] = 0
         # Switch off warnings fo detected nan,inf values
         with warnings.catch_warnings(record=True) as w:
             if i==0:
@@ -240,6 +247,9 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         except AttributeError:
             # Skip Impulsive Outlier candences
             continue
+
+        # Mask saturated pixels
+        countergrid_all[mask_saturated==1] = 0
 
     return countergrid_all, tpf, len(core_samples_mask), campaignnum
 

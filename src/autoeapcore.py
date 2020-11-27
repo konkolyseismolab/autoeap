@@ -454,6 +454,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     import os
     from astropy.io import ascii
 
+    # Check campaign number format
+    if not isinstance(campaign,(int,float,np.integer,np.floating)) and campaign is not None:
+        raise ValueError('Campaign number must be integer, float or None')
+
     countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
     # Add underscores to output filenames

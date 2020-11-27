@@ -320,14 +320,58 @@ def tpfplot(tpf,apindex,apertures,aps):
 
 
 def apgapfilling(aperture):
-    from scipy.ndimage import median_filter
 
-    aper = aperture.copy()
+    import numpy as np
 
-    medfilt =  median_filter(aper,size=(3,3),mode='mirror')
-    aper[medfilt] = True
+    napn=[]
 
-    return aper*1
+    ap=aperture*1
+
+    for index, each in enumerate(ap):
+        nrow=[]
+        for INDEX, EACH in enumerate(each):
+            nc=0
+
+            try:
+                if ap[index+1][INDEX]==1: nc+=1
+            except:pass
+
+            try:
+                if ap[index][INDEX+1]==1: nc+=1
+            except:pass
+
+            try:
+                if index-1>=0:
+                    if ap[index-1][INDEX]==1: nc+=1
+            except:pass
+
+            try:
+                if INDEX-1>=0:
+                    if ap[index][INDEX-1]==1: nc+=1
+            except:pass
+
+            nrow.append(nc)
+        napn.append(nrow)
+
+    napn=np.asarray(napn)
+
+    mask = 4*np.ones(ap.shape, dtype=int)
+    mask[0][:]=3
+    mask[-1][:]=3
+
+    for each in mask: each[0]=3
+    for each in mask: each[-1]=3
+
+    mask[0][0]=99
+    mask[0][-1]=99
+    mask[-1][0]=99
+    mask[-1][-1]=99
+
+    extraap=(napn/mask*np.invert(np.array(ap, dtype=bool))*1>0.7)*1
+
+    gapfilledap=ap+extraap
+
+    return(gapfilledap)
 
 def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_plots=False):
 

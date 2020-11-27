@@ -231,7 +231,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
             if save_plots or show_plots:
                 draw_a_single_aperture(tpf,i,segm,inputfile,show_plots=show_plots,save_plots=save_plots)
 
-        countergrid_all += (segm.data>0)*1 # IMPORTANT BIT, NOT TO LET segm.data TO CONTAIN OTHER VALUES THAN 0 & 1
+        try:
+            countergrid_all += (segm.data>0)*1 # IMPORTANT BIT, NOT TO LET segm.data TO CONTAIN OTHER VALUES THAN 0 & 1
+        except AttributeError:
+            # Skip Impulsive Outlier candences
+            continue
 
     return countergrid_all, tpf, len(core_samples_mask), campaignnum
 

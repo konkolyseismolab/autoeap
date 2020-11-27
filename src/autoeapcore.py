@@ -205,8 +205,12 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 use_meanstd_threshold = False
                 if segm.nlabels==1:
                     # if there is only one target, check if it is a merger of two
-                    threshold = np.mean(tpfdata)+.5*np.std(tpfdata)
-                    segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)
+                    for thresholdsigma in np.linspace(0,0.51,10):
+                        # Find minimum sigma level where we can find 2 targets
+                        threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)
+                        segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)
+                        if segm is not None and segm.nlabels>1:
+                            break
                     if segm is None:
                         # if nothing found, go back to previuos state
                         threshold = photutils.detect_threshold(tpfdata, nsigma=1.8)
@@ -221,7 +225,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                         segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None)
                         use_meanstd_threshold = False
             elif use_meanstd_threshold:
-                threshold = np.mean(tpfdata)+.5*np.std(tpfdata)
+                threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)
             else:
                 threshold = photutils.detect_threshold(tpfdata, nsigma=1.8)

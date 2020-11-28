@@ -397,6 +397,13 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         frequency, power = ls.autopower(normalization='psd',
                                         minimum_frequency=2/lc.time.ptp(),
                                         nyquist_factor=1)
+
+        sixhourspeak = 4.06998484731612
+        df = 1/lc.time.ptp()
+        for ii in range(5):
+            umcut = np.where( np.logical_and(frequency>(ii+1)*sixhourspeak-3*df,frequency<(ii+1)*sixhourspeak+3*df )  )
+            power[umcut]     = np.nan
+
         axs[ii,0].plot(frequency, power,label='Target %d' % (ii+1))
         axs[ii,0].set_xlabel('Frequency',fontsize=20)
         axs[ii,0].set_ylabel('Power',fontsize=20)
@@ -415,14 +422,14 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         power     = power[    2/lc.time.ptp() < frequency]
         frequency = frequency[2/lc.time.ptp() < frequency]
 
-        max_over_mean.append(np.max(power)/np.median(power))
+        max_over_mean.append(np.nanmax(power)/np.nanmedian(power))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
     if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
 
-    return np.argmax(max_over_mean)
+    return np.nanargmax(max_over_mean)
 
 
 def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):

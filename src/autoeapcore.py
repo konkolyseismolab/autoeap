@@ -618,7 +618,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         if show_plots: plt.show()
         plt.close(fig)
 
-        variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots)
+        variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
         if save_plots or show_plots:
             fig = plt.figure(figsize=(20,4))
             try: plt.plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')

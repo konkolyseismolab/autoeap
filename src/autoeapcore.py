@@ -50,18 +50,22 @@ def get_gaia(tpf, magnitude_limit=18):
     result.RA_ICRS += pmra
     result.DE_ICRS += pmdec
 
+    um = (coords[:, 0]-1>=-1) & (coords[:, 1]-1>=-1) & (coords[:, 0]-1<=tpf.shape[2]) & (coords[:, 1]-1<=tpf.shape[1])
+    result = result[um]
+    coords = coords[um]
+
     # Gently size the points by their Gaia magnitude
     sizes = 64.0 / 2**(result['Gmag']/5.0)
     one_over_parallax = 1.0 / (result['Plx']/1000.)
-    data=dict(  ra=result['RA_ICRS'],
-                dec=result['DE_ICRS'],
-                source=result['Source'].astype(str),
-                Gmag=result['Gmag'],
-                plx=result['Plx'],
-                one_over_plx=one_over_parallax,
+    data=dict(  ra=result['RA_ICRS'].to_numpy(),
+                dec=result['DE_ICRS'].to_numpy(),
+                source=result['Source'].astype(str).to_numpy(),
+                Gmag=result['Gmag'].to_numpy(),
+                plx=result['Plx'].to_numpy(),
+                one_over_plx=one_over_parallax.to_numpy(),
                 x=coords[:, 0]-1,
                 y=coords[:, 1]-1,
-                size=sizes)
+                size=sizes.to_numpy())
 
     return data
 
@@ -69,6 +73,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     '''Count number of Gaia objects inside each aperture'''
     filtered=apdrawer((segm==apnum)*1)
 
+    whichstarisinaperture = []
     numberofstars = 0
     for whichstar in range(len(gaia['x'])):
         count = 0
@@ -83,10 +88,31 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
 
         if count>0 and (count+1)%2==0 or onedge:
             numberofstars += 1
+            whichstarisinaperture.append(whichstar)
 
-    return numberofstars
+    return numberofstars,whichstarisinaperture
 
 def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
+        from scipy.stats import binned_statistic_2d
+
+        # Keep only the brightest targets per pixel
+        npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
+                                                    range=[[-1,tpf.shape[2]],[-1,tpf.shape[1]]],
+                                                    bins=(tpf.shape[2]+1,tpf.shape[1]+1),
+                                                    statistic='count')
+
+        umbin = []
+        for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
+            umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
+                                    & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
+
+        deletevalues = []
+        for um in umbin:
+            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+
+        for key in gaia.keys():
+            gaia[key] = np.delete(gaia[key], deletevalues)
+
         apsbckup = aps.copy()
         # Move stars near edge closer to edge
         um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
@@ -107,7 +133,8 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
 
         for apnumber in range(1,np.max(aps)+1):
             _currentmaxapnumber = np.max(apsbckup)
-            if how_many_stars_inside_aperture(apnumber,aps,gaia) > 1:
+            starinsideaperture,whichstarisinaperture = how_many_stars_inside_aperture(apnumber,aps,gaia)
+            if gaia is not None and starinsideaperture > 1:
                 if show_plots or save_plots:
                     fig = plt.figure()
                     plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
@@ -123,7 +150,7 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
                 thismask = np.where(aps==apnumber)
                 for y,x in zip(thismask[0],thismask[1]):
                     dist = []
-                    for gaiaID in range(len(gaia['x'])):
+                    for gaiaID in whichstarisinaperture:
                         dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2)  )
 
                     if show_plots or save_plots:
@@ -347,7 +374,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                     # if there is only one target, check if it is a merger of two
                     try: gaia = get_gaia(tpf,magnitude_limit=21)
                     except: gaia=None
-                    if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)==1:
+                    if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)[0]==1:
                         # Only one Gaia target found
                         continue
                     for thresholdsigma in np.linspace(0,0.51,10):

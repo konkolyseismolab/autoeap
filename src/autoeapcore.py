@@ -7,13 +7,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import lightkurve
 import warnings
+from numba import jit
 
 class autoeapFutureWarning(Warning):
     """Class for knowing that LightKurve 2.x fucked up my life."""
     pass
 
-def apdrawer(limitc):
-    intgrid=limitc*1
+@jit(nopython=True,fastmath=True,cache=True)
+def apdrawer(intgrid):
     down=[];up=[];left=[];right=[]
     for i, eachline in enumerate(intgrid):
         for j, each in enumerate(eachline):
@@ -318,7 +319,7 @@ def tpfplot(tpf,apindex,apertures,aps):
         try: plt.pcolormesh(np.log(20+tpf.flux[apindex].value), cmap='viridis')
         except AttributeError: plt.pcolormesh(np.log(20+tpf.flux[apindex]), cmap='viridis')
 
-    filtered=apdrawer(apertures)
+    filtered=apdrawer(apertures*1)
     for x in range(len(filtered)):
         plt.plot(filtered[x][0],filtered[x][1],c='red', linewidth=8)
 
@@ -594,7 +595,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                        'blue','cyan','magenta','white','black','yellow','green','blue','cyan','magenta',
                        'white','black','yellow','green','blue','cyan','magenta','white']
             for i, ithap in enumerate(gapfilledaperturelist):
-                filtered=apdrawer(ithap)
+                filtered=apdrawer(ithap*1)
                 for x in range(len(filtered)):
                     plt.plot(filtered[x][0],filtered[x][1],c=colorlist[i],linewidth=4)
 

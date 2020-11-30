@@ -6,3 +6,4 @@ sklearn
 astropy>=4.1rc1
 wotan
 tqdm>=4.25.0
+numba

@@ -290,19 +290,22 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
                 apertures=countergrid_all>apindex;
                 extensionprospects=True
                 wehaveajump = True
+                apindexfinal = apindex
             elif wehaveajump:
                 if nfeature<numfeatureslist[apindex-1]: break
                 elif nfeature>numfeatureslist[apindex-1]:
                     # Second jump up
                     apertures=countergrid_all>apindex;
                     extensionprospects=True
+                    apindexfinal = apindex
                     break
     else:
         apindex=int(filterpassingpicsnum/TH)
         apertures=(countergrid_all>apindex)
         extensionprospects=False
+        apindexfinal = apindex
 
-    return apertures, extensionprospects, apindex
+    return apertures, extensionprospects, apindexfinal
 
 
 def tpfplot(tpf,apindex,apertures,aps):

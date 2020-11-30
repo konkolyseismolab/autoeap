@@ -135,12 +135,13 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
                     else:
                         apsbckup[y,x] = _currentmaxapnumber+mindistat
 
-                plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
-                plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
-                plt.tight_layout()
-                if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png')
-                if show_plots: plt.show()
-                plt.close(fig)
+                if show_plots or save_plots:
+                    plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
+                    plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
+                    plt.tight_layout()
+                    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png')
+                    if show_plots: plt.show()
+                    plt.close(fig)
 
         return apsbckup
 
@@ -713,7 +714,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         except: gaia = None
 
         if gaia is not None:
-            aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=False,save_plots=False)
+            aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=show_plots,save_plots=save_plots)
 
         # Split each target aperture
         aperturelist = []

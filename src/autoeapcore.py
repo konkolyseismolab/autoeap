@@ -468,6 +468,10 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
         if not wehaveajump:
             apindex=int(filterpassingpicsnum/TH)
             apertures=(countergrid_all>apindex)
+            if np.sum(apertures)==0:
+                # if too few pixels remaining
+                apindex = int(countergrid_all.max()-1)
+                apertures=(countergrid_all>apindex)
             extensionprospects=False
             apindexfinal = apindex
 

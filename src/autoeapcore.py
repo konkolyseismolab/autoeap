@@ -300,10 +300,11 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
                     apindexfinal = apindex
                     break
     else:
-        apindex=int(filterpassingpicsnum/TH)
-        apertures=(countergrid_all>apindex)
-        extensionprospects=False
-        apindexfinal = apindex
+        if not wehaveajump:
+            apindex=int(filterpassingpicsnum/TH)
+            apertures=(countergrid_all>apindex)
+            extensionprospects=False
+            apindexfinal = apindex
 
     return apertures, extensionprospects, apindexfinal
 

@@ -410,8 +410,8 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
 
         sixhourspeak = 4.06998484731612
         df = 1/lc.time.ptp()
-        for ii in range(5):
-            umcut = np.where( np.logical_and(frequency>(ii+1)*sixhourspeak-3*df,frequency<(ii+1)*sixhourspeak+3*df )  )
+        for jj in range(5):
+            umcut = np.where( np.logical_and(frequency>(jj+1)*sixhourspeak-3*df,frequency<(jj+1)*sixhourspeak+3*df )  )
             power[umcut]     = np.nan
 
         axs[ii,0].plot(frequency, power,label='Target %d' % (ii+1))

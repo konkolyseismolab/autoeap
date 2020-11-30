@@ -110,7 +110,7 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
             if how_many_stars_inside_aperture(apnumber,aps,gaia) > 1:
                 if show_plots or save_plots:
                     fig = plt.figure()
-                    plt.title('Splitting AFG aperture'+str(apnumber)+' by Gaia')
+                    plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
                     plt.imshow(aps,origin='lower')
 
                     filtered=apdrawer((aps==apnumber)*1)
@@ -345,6 +345,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 use_meanstd_threshold = False
                 if segm.nlabels==1:
                     # if there is only one target, check if it is a merger of two
+                    try: gaia = get_gaia(tpf,magnitude_limit=21)
+                    except: gaia=None
+                    if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)==1:
+                        # Only one Gaia target found
+                        continue
                     for thresholdsigma in np.linspace(0,0.51,10):
                         # Find minimum sigma level where we can find 2 targets
                         threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)

@@ -283,13 +283,20 @@ def pixelremoval(gapfilledaperturelist,variableindex):
 
 
 def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
+    wehaveajump = False
     for apindex, nfeature in enumerate(numfeatureslist):
         if apindex>ROI[0] and apindex<ROI[1]:
-            if nfeature>numfeatureslist[apindex-1]:
-                # apindex used as threshold
-                apertures=countergrid_all>apindex
+            if nfeature>numfeatureslist[apindex-1] and not wehaveajump:
+                apertures=countergrid_all>apindex;
                 extensionprospects=True
-                break
+                wehaveajump = True
+            elif wehaveajump:
+                if nfeature<numfeatureslist[apindex-1]: break
+                elif nfeature>numfeatureslist[apindex-1]:
+                    # Second jump up
+                    apertures=countergrid_all>apindex;
+                    extensionprospects=True
+                    break
     else:
         apindex=int(filterpassingpicsnum/TH)
         apertures=(countergrid_all>apindex)

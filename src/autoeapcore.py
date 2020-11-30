@@ -422,7 +422,9 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         power     = power[    2/lc.time.ptp() < frequency]
         frequency = frequency[2/lc.time.ptp() < frequency]
 
-        max_over_mean.append(np.nanmax(power)/np.nanmedian(power))
+        winsorize = power<np.nanpercentile(power,90)
+
+        max_over_mean.append(np.nanmax(power)/np.nanmean(power[winsorize]))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
     if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')

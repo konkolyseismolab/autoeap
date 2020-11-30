@@ -13,6 +13,137 @@ class autoeapFutureWarning(Warning):
     """Class for knowing that LightKurve 2.x fucked up my life."""
     pass
 
+def get_gaia(tpf, magnitude_limit=18):
+    from astropy.coordinates import SkyCoord, Angle
+    import astropy.units as u
+
+    """Make the Gaia Figure Elements"""
+    # Get the positions of the Gaia sources
+    c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
+    # Use pixel scale for query size
+    pix_scale = 4.0  # arcseconds / pixel for Kepler, default
+    if tpf.mission == 'TESS':
+        pix_scale = 21.0
+    rad = np.sqrt(tpf.shape[1]**2+tpf.shape[2]**2)*pix_scale / 2
+    # We are querying with a diameter as the radius, overfilling by 2x.
+    from astroquery.vizier import Vizier
+    Vizier.ROW_LIMIT = -1
+    result = Vizier.query_region(c1, catalog=["I/345/gaia2"],
+                                 radius=Angle(rad, "arcsec"))
+    no_targets_found_message = ValueError('Either no sources were found in the query region '
+                                          'or Vizier is unavailable')
+    too_few_found_message = ValueError('No sources found brighter than {:0.1f}'.format(magnitude_limit))
+    if result is None:
+        raise no_targets_found_message
+    elif len(result) == 0:
+        raise too_few_found_message
+    result = result["I/345/gaia2"].to_pandas()
+    result = result[result.Gmag < magnitude_limit]
+    result.reset_index(drop=True, inplace=True)
+    if len(result) == 0:
+        raise no_targets_found_message
+    radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
+    coords = tpf.wcs.all_world2pix(radecs, 1) ## TODO, is origin supposed to be zero or one?
+    year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
+    pmra = ((np.nan_to_num(np.asarray(result.pmRA)) * u.milliarcsecond/u.year) * year).to(u.deg).value
+    pmdec = ((np.nan_to_num(np.asarray(result.pmDE)) * u.milliarcsecond/u.year) * year).to(u.deg).value
+    result.RA_ICRS += pmra
+    result.DE_ICRS += pmdec
+
+    # Gently size the points by their Gaia magnitude
+    sizes = 64.0 / 2**(result['Gmag']/5.0)
+    one_over_parallax = 1.0 / (result['Plx']/1000.)
+    data=dict(  ra=result['RA_ICRS'],
+                dec=result['DE_ICRS'],
+                source=result['Source'].astype(str),
+                Gmag=result['Gmag'],
+                plx=result['Plx'],
+                one_over_plx=one_over_parallax,
+                x=coords[:, 0]-1,
+                y=coords[:, 1]-1,
+                size=sizes)
+
+    return data
+
+def how_many_stars_inside_aperture(apnum,segm,gaia):
+    '''Count number of Gaia objects inside each aperture'''
+    filtered=apdrawer((segm==apnum)*1)
+
+    numberofstars = 0
+    for whichstar in range(len(gaia['x'])):
+        count = 0
+        onedge = False
+        for x in range(len(filtered)):
+            p1,p2 = np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5
+            if p1[0]==p1[1] and p1[0]>gaia['x'][whichstar] and np.maximum(p2[0],p2[1])>=gaia['y'][whichstar]>=np.minimum(p2[0],p2[1]):
+                count += 1
+            elif p1[0]==p1[1] and np.allclose(gaia['x'][whichstar],p1[0]) and np.maximum(p2[0],p2[1])>=gaia['y'][whichstar]>=np.minimum(p2[0],p2[1]):
+                # star is on the edge of mask
+                onedge=True
+
+        if count>0 and (count+1)%2==0 or onedge:
+            numberofstars += 1
+
+    return numberofstars
+
+def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
+        apsbckup = aps.copy()
+        # Move stars near edge closer to edge
+        um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
+        if len(um)>0:
+            gaia['x'][um]=-0.5
+
+        um = np.where( (-0.5>=gaia['y']) & (gaia['y']>=-1) )[0]
+        if len(um)>0:
+            gaia['y'][um]=-0.5
+
+        um = np.where( (tpf.flux.shape[2]>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
+        if len(um)>0:
+            gaia['x'][um]=tpf.flux.shape[2]-0.5
+
+        um = np.where( (tpf.flux.shape[1]>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
+        if len(um)>0:
+            gaia['y'][um]=tpf.flux.shape[1]-0.5
+
+        for apnumber in range(1,np.max(aps)+1):
+            _currentmaxapnumber = np.max(apsbckup)
+            if how_many_stars_inside_aperture(apnumber,aps,gaia) > 1:
+                if show_plots or save_plots:
+                    fig = plt.figure()
+                    plt.title('Splitting AFG aperture'+str(apnumber)+' by Gaia')
+                    plt.imshow(aps,origin='lower')
+
+                    filtered=apdrawer((aps==apnumber)*1)
+                    for x in range(len(filtered)):
+                        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=3)
+
+                    plt.plot(gaia['x'],gaia['y'],'kx',ms=20)
+                    plt.plot(gaia['x'],gaia['y'],'ko')
+
+                thismask = np.where(aps==apnumber)
+                for y,x in zip(thismask[0],thismask[1]):
+                    dist = []
+                    for gaiaID in range(len(gaia['x'])):
+                        dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2)  )
+
+                    if show_plots or save_plots:
+                        text = plt.text(x, y, str(round(np.min(dist),1)) ,
+                                            ha="center", va="center", color='C'+str(np.argmin(dist)))
+
+                    mindistat = np.argmin(dist)
+                    if mindistat==0: continue
+                    else:
+                        apsbckup[y,x] = _currentmaxapnumber+mindistat
+
+                plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
+                plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
+                plt.tight_layout()
+                if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png')
+                if show_plots: plt.show()
+                plt.close(fig)
+
+        return apsbckup
+
 @jit(nopython=True,fastmath=True,cache=True)
 def apdrawer(intgrid):
     down=[];up=[];left=[];right=[]
@@ -576,6 +707,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,targettpf,show_plots=show_plots,save_plots=save_plots)
 
         aps, numpeaks = snm.label(apertures)
+
+        # Query Gaia catalog
+        try: gaia = get_gaia(tpf)
+        except: gaia = None
+
+        if gaia is not None:
+            aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=False,save_plots=False)
 
         # Split each target aperture
         aperturelist = []

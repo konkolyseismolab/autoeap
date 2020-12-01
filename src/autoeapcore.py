@@ -105,7 +105,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         from scipy.spatial import distance_matrix
 
         magorder = np.argsort(gaia['Gmag'][whichstarisinaperture])
-        magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) <=2)[0]
+        magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) <=2.5)[0]
 
         pos_brightest = np.c_[gaia['x'][whichstarisinaperture][magorder][0],gaia['y'][whichstarisinaperture][magorder][0]]
         distances = distance_matrix(pos_brightest,np.c_[gaia['x'][whichstarisinaperture][magorder][1:],gaia['y'][whichstarisinaperture][magorder][1:]])[0]

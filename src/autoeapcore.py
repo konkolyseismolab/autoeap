@@ -424,7 +424,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                     # if there is only one target, check if it is a merger of two
                     try: gaia = get_gaia(tpf,magnitude_limit=21)
                     except: gaia=None
-                    if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)[0]==1:
+                    if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)[0]<=1:
                         # Only one Gaia target found
                         continue
                     for thresholdsigma in np.linspace(0,0.51,10):

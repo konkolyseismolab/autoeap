@@ -161,8 +161,9 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
 
         deletevalues = np.unique(deletevalues)
 
-        for key in gaia.keys():
-            gaia[key] = np.delete(gaia[key], deletevalues)
+        if len(deletevalues)>0:
+            for key in gaia.keys():
+                gaia[key] = np.delete(gaia[key], deletevalues)
 
         apsbckup = aps.copy()
         # Move stars near edge closer to edge

@@ -518,6 +518,15 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
         if not wehaveajump:
             apindex=int(filterpassingpicsnum/TH)
             apertures=(countergrid_all>apindex)
+            backward_jump = False
+            for apind, nfeature in enumerate(numfeatureslist):
+                # Maximize aperture size if TH is used
+                if apind>ROI[0] and apind<apindex and nfeature<numfeatureslist[apind-1]:
+                    apertures=countergrid_all>apind
+                    print('Backward jump found')
+                    apindexfinal = apind
+                    backward_jump = True
+            if backward_jump: apindex = apindexfinal
             if np.sum(apertures)==0:
                 # if too few pixels remaining
                 apindex = int(countergrid_all.max()-1)

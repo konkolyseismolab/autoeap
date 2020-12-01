@@ -50,7 +50,7 @@ def get_gaia(tpf, magnitude_limit=18):
     result.RA_ICRS += pmra
     result.DE_ICRS += pmdec
 
-    um = (coords[:, 0]-1>=-1) & (coords[:, 1]-1>=-1) & (coords[:, 0]-1<=tpf.shape[2]+1) & (coords[:, 1]-1<=tpf.shape[1]+1)
+    um = (coords[:, 0]-1>=-1) & (coords[:, 1]-1>=-1) & (coords[:, 0]-1<=tpf.shape[2]) & (coords[:, 1]-1<=tpf.shape[1])
     result = result[um]
     coords = coords[um]
 
@@ -137,11 +137,11 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
         if len(um)>0:
             gaia['y'][um]=-0.5
 
-        um = np.where( (tpf.flux.shape[2]>=gaia['x']+0.5) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
+        um = np.where( (tpf.flux.shape[2]>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
         if len(um)>0:
             gaia['x'][um]=tpf.flux.shape[2]-0.5
 
-        um = np.where( (tpf.flux.shape[1]>=gaia['y']+0.5) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
+        um = np.where( (tpf.flux.shape[1]>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
         if len(um)>0:
             gaia['y'][um]=tpf.flux.shape[1]-0.5
 

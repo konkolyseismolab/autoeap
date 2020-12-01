@@ -89,7 +89,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         if count>0 and (count+1)%2==0 or onedge:
             numberofstars += 1
             whichstarisinaperture.append(whichstar)
-            
+
     # If there is a very bright star, do not split aperture
     magdiff = gaia['Gmag'] - np.min(gaia['Gmag'])
     magdiff = magdiff[ magdiff> 0]
@@ -584,7 +584,8 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     print('Iteration:', iterationnum)
 
     #iterationnum is a one based index, the number of the lc is zero based indexed
-    max_over_mean=[]
+    max_over_mean= []
+    max_powers   = []
 
     nrows = len(lclist)
     fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
@@ -629,11 +630,18 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         winsorize = power<np.nanpercentile(power,90)
 
         max_over_mean.append(np.nanmax(power)/np.nanmean(power[winsorize]))
+        max_powers.append(np.nanmax(power))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
     if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
+
+    # If there is a very large amplitude variable, do not drop it!
+    max_powers_ratio = np.max(max_powers)/np.array(max_powers)
+    max_powers_ratio = max_powers_ratio[max_powers_ratio>1]
+    if len(max_powers_ratio)>1 and np.min(max_powers_ratio)>1e06:
+        return np.argmax(max_powers)
 
     return np.nanargmax(max_over_mean)
 

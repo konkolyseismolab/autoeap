@@ -820,6 +820,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         except: gaia = None
 
         if gaia is not None:
+            # Fill apertures before splitting them
+            for apnumber in range(1,np.max(aps)+1):
+                aps[ apgapfilling(aps==apnumber)>0 ] = apnumber
+
+            apertures = apgapfilling(apertures)
             aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=show_plots,save_plots=save_plots)
 
         # Split each target aperture

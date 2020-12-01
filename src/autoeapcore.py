@@ -379,7 +379,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         mask_saturated[tpfdata>180000] = 1
         # Do not mask middle region as it may contain a bright target
         mask_saturated[ 2:tpf.flux.shape[1]-2  , 2:tpf.flux.shape[2]-2  ] = 0
-        tpfdata[       tpfdata>180000] = 0
+        tpfdata[   mask_saturated==1 ] = 0
         # Switch off warnings fo detected nan,inf values
         with warnings.catch_warnings(record=True) as w:
             if i==0:

@@ -145,6 +145,7 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
         if len(um)>0:
             gaia['y'][um]=tpf.flux.shape[1]-0.5
 
+        weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
         for apnumber in range(1,np.max(aps)+1):
             _currentmaxapnumber = np.max(apsbckup)
             starinsideaperture,whichstarisinaperture = how_many_stars_inside_aperture(apnumber,aps,gaia)
@@ -165,7 +166,7 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
                 for y,x in zip(thismask[0],thismask[1]):
                     dist = []
                     for gaiaID in whichstarisinaperture:
-                        dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2)  )
+                        dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2) * weight[gaiaID]  )
 
                     if show_plots or save_plots:
                         text = plt.text(x, y, str(round(np.min(dist),1)) ,

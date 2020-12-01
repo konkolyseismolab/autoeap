@@ -427,7 +427,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                     if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)[0]<=1:
                         # Only one Gaia target found
                         continue
-                    for thresholdsigma in np.linspace(0,0.51,10):
+                    for thresholdsigma in np.linspace(0,0.51,50):
                         # Find minimum sigma level where we can find 2 targets
                         threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)
                         segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)

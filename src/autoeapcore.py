@@ -377,6 +377,8 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
         mask_saturated[tpfdata>180000] = 1
+        # Do not mask middle region as it may contain a bright target
+        mask_saturated[ 2:tpf.flux.shape[1]-2  , 2:tpf.flux.shape[2]-2  ] = 0
         tpfdata[       tpfdata>180000] = 0
         # Switch off warnings fo detected nan,inf values
         with warnings.catch_warnings(record=True) as w:

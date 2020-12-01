@@ -91,11 +91,20 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
             whichstarisinaperture.append(whichstar)
 
     # If there is a very bright star, do not split aperture
-    magdiff = gaia['Gmag'] - np.min(gaia['Gmag'])
-    magdiff = magdiff[ magdiff> 0]
-    if np.min(magdiff) > 6:
-        numberofstars = 0
-        whichstarisinaperture = []
+    if len(whichstarisinaperture) > 1:
+        magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
+        magdiff = magdiff[ magdiff> 0]
+        if np.min(magdiff) > 6:
+            numberofstars = 0
+            whichstarisinaperture = []
+
+    # If there are similarly bright stars ignore >1 mag fainter ones
+    if len(whichstarisinaperture) > 1:
+        magorder = np.argsort(gaia['Gmag'][whichstarisinaperture])
+        magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) >1)[0]
+        if np.any( magdiffs_at > 0 ):
+            whichstarisinaperture = np.split(np.array(whichstarisinaperture)[magorder],[magdiffs_at[0]+1])[0]
+            numberofstars = len(whichstarisinaperture)
 
     return numberofstars,whichstarisinaperture
 

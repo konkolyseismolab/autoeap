@@ -820,6 +820,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         except: gaia = None
 
         if gaia is not None:
+            print('Using Gaia to separate sources')
             # Fill apertures before splitting them
             for apnumber in range(1,np.max(aps)+1):
                 aps[ apgapfilling(aps==apnumber)>0 ] = apnumber

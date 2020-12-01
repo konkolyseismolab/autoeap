@@ -122,7 +122,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         magorder = np.argsort(gaia['Gmag'][whichstarisinaperture])
         magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) >1)[0]
         if np.any( magdiffs_at > 0 ):
-            whichstarisinaperture = np.split(np.array(whichstarisinaperture)[magorder],[magdiffs_at[0]+1])[0]
+            whichstarisinaperture = np.split(np.array(whichstarisinaperture)[magorder],[magdiffs_at[magdiffs_at>0][0]+1])[0]
             numberofstars = len(whichstarisinaperture)
             not_split_flag = 1
 

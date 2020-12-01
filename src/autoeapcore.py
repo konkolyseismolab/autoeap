@@ -640,7 +640,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     # If there is a very large amplitude variable, do not drop it!
     max_powers_ratio = np.max(max_powers)/np.array(max_powers)
     max_powers_ratio = max_powers_ratio[max_powers_ratio>1]
-    if len(max_powers_ratio)>1 and np.min(max_powers_ratio)>1e06:
+    if len(max_powers_ratio)>0 and np.min(max_powers_ratio)>1e06:
         return np.argmax(max_powers)
 
     return np.nanargmax(max_over_mean)

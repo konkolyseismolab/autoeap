@@ -116,7 +116,7 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
 
         # Find close targets and keep only the brightest target
         distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
-        umbin = np.where( (distances>0) & (distances<0.5) )[0]
+        umbin = np.where( (distances>0) & (distances<1.41) )[0]
 
         umbin = np.split(umbin,np.arange(2,len(umbin),2))
 

@@ -112,7 +112,6 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         close_and_similar_stars = np.where( close_stars_at == magdiffs_at )[0]
 
         if len(magdiffs_at)>0 and len(close_and_similar_stars)>0 and magdiffs_at[0] == 0 and close_and_similar_stars[0]==0:
-            print('Close similarly bright stars, not splitting!')
             numberofstars = 0
             whichstarisinaperture = []
 

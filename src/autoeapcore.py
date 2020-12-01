@@ -782,7 +782,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
             colorlist=['black','yellow','green','blue','cyan','magenta','white','black','yellow','green',
                        'blue','cyan','magenta','white','black','yellow','green','blue','cyan','magenta',
-                       'white','black','yellow','green','blue','cyan','magenta','white']
+                       'white','black','yellow','green','blue','cyan','magenta','white']*2
             for i, ithap in enumerate(gapfilledaperturelist):
                 filtered=apdrawer(ithap*1)
                 for x in range(len(filtered)):

@@ -94,6 +94,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
 
 def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
         from scipy.stats import binned_statistic_2d
+        from scipy.spatial import distance_matrix
 
         # Keep only the brightest targets per pixel
         npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
@@ -105,6 +106,19 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
         for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
             umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
                                     & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
+
+        deletevalues = []
+        for um in umbin:
+            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+
+        for key in gaia.keys():
+            gaia[key] = np.delete(gaia[key], deletevalues)
+
+        # Find close targets and keep only the brightest target
+        distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
+        umbin = np.where( (distances>0) & (distances<0.5) )[0]
+
+        umbin = np.split(umbin,np.arange(2,len(umbin),2))
 
         deletevalues = []
         for um in umbin:

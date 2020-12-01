@@ -95,7 +95,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     if len(whichstarisinaperture) > 1:
         magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
         magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 5:
+        if np.min(magdiff) > 4:
             print('Very large brightness difference, not splitting!')
             numberofstars = 0
             whichstarisinaperture = []

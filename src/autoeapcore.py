@@ -763,7 +763,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         aps, numpeaks = snm.label(apertures)
 
         # Query Gaia catalog
-        try: gaia = get_gaia(tpf)
+        try: gaia = get_gaia(tpf,magnitude_limit=21)
         except: gaia = None
 
         if gaia is not None:

@@ -89,6 +89,13 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         if count>0 and (count+1)%2==0 or onedge:
             numberofstars += 1
             whichstarisinaperture.append(whichstar)
+            
+    # If there is a very bright star, do not split aperture
+    magdiff = gaia['Gmag'] - np.min(gaia['Gmag'])
+    magdiff = magdiff[ magdiff> 0]
+    if np.min(magdiff) > 6:
+        numberofstars = 0
+        whichstarisinaperture = []
 
     return numberofstars,whichstarisinaperture
 

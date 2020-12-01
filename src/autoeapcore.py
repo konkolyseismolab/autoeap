@@ -72,6 +72,7 @@ def get_gaia(tpf, magnitude_limit=18):
 def how_many_stars_inside_aperture(apnum,segm,gaia):
     '''Count number of Gaia objects inside each aperture'''
     filtered=apdrawer((segm==apnum)*1)
+    not_split_flag = 0
 
     whichstarisinaperture = []
     numberofstars = 0
@@ -123,8 +124,9 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         if np.any( magdiffs_at > 0 ):
             whichstarisinaperture = np.split(np.array(whichstarisinaperture)[magorder],[magdiffs_at[0]+1])[0]
             numberofstars = len(whichstarisinaperture)
+            not_split_flag = 1
 
-    return numberofstars,whichstarisinaperture
+    return numberofstars,whichstarisinaperture,not_split_flag
 
 def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
         from scipy.stats import binned_statistic_2d
@@ -182,7 +184,7 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
         weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
         for apnumber in range(1,np.max(aps)+1):
             _currentmaxapnumber = np.max(apsbckup)
-            starinsideaperture,whichstarisinaperture = how_many_stars_inside_aperture(apnumber,aps,gaia)
+            starinsideaperture,whichstarisinaperture,_ = how_many_stars_inside_aperture(apnumber,aps,gaia)
             if gaia is not None and starinsideaperture > 1:
                 if show_plots or save_plots:
                     fig = plt.figure()
@@ -425,7 +427,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                     # if there is only one target, check if it is a merger of two
                     try: gaia = get_gaia(tpf,magnitude_limit=21)
                     except: gaia=None
-                    if gaia is not None and how_many_stars_inside_aperture(1,segm.data,gaia)[0]<=1:
+                    if gaia is not None and (how_many_stars_inside_aperture(1,segm.data,gaia)[0]<=1 or how_many_stars_inside_aperture(1,segm.data,gaia)[2]==1):
                         # Only one Gaia target found
                         continue
                     for thresholdsigma in np.linspace(0,0.51,50):

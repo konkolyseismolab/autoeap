@@ -637,21 +637,11 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     if show_plots: plt.show()
     plt.close(fig)
 
-    # If there is a very bright star, do not split aperture
-    if len(whichstarisinaperture) > 1:
-        magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
-        magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 6:
-            numberofstars = 0
-            whichstarisinaperture = []
-
-    # If there are similarly bright stars ignore >1 mag fainter ones
-    if len(whichstarisinaperture) > 1:
-        magorder = np.argsort(gaia['Gmag'][whichstarisinaperture])
-        magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) >1)[0]
-        if np.any( magdiffs_at > 0 ):
-            whichstarisinaperture = np.split(np.array(whichstarisinaperture)[magorder],[magdiffs_at[0]+1])[0]
-            numberofstars = len(whichstarisinaperture)
+    # If there is a very large amplitude variable, do not drop it!
+    max_powers_ratio = np.max(max_powers)/np.array(max_powers)
+    max_powers_ratio = max_powers_ratio[max_powers_ratio>1]
+    if len(max_powers_ratio)>0 and np.min(max_powers_ratio)>1e06:
+        return np.argmax(max_powers)
 
     return np.nanargmax(max_over_mean)
 

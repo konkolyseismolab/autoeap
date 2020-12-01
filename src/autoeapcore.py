@@ -665,7 +665,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         power     = power[    2/lc.time.ptp() < frequency]
         frequency = frequency[2/lc.time.ptp() < frequency]
 
-        winsorize = power<np.nanpercentile(power,90)
+        winsorize = power<np.nanpercentile(power,95)
 
         max_over_mean.append(np.nanmax(power)/np.nanmean(power[winsorize]))
         max_powers.append(np.nanmax(power))

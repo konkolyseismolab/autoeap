@@ -113,7 +113,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
             numberofstars = 0
             whichstarisinaperture = []
 
-    # If there is <2 mag differences between stars within 2.828 pix, do not split aperture
+    # If there is <2 mag differences between stars within 3.0 pix, do not split aperture
     if len(whichstarisinaperture) > 1:
         from scipy.spatial import distance_matrix
 
@@ -122,7 +122,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
 
         pos_brightest = np.c_[gaia['x'][whichstarisinaperture][magorder][0],gaia['y'][whichstarisinaperture][magorder][0]]
         distances = distance_matrix(pos_brightest,np.c_[gaia['x'][whichstarisinaperture][magorder][1:],gaia['y'][whichstarisinaperture][magorder][1:]])[0]
-        close_stars_at = np.where( (distances>0) & (distances<2.828) )[0]
+        close_stars_at = np.where( (distances>0) & (distances<3.0) )[0]
 
         if len(magdiffs_at)>0 and len(close_stars_at)>0 and magdiffs_at[0] == 0 and close_stars_at[0]==0:
             numberofstars = 0

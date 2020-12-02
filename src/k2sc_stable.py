@@ -1,5 +1,7 @@
 #code below is from this repository: https://github.com/OxES/k2sc
 
+import matplotlib.pyplot as plt 
+
 def psearch(time, flux, min_p, max_p):
     '''
     Search for a statistically significant period using a Lomb-Scargle periodogram.

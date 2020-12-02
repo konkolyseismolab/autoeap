@@ -1,6 +1,6 @@
 #code below is from this repository: https://github.com/OxES/k2sc
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt 
 
 def psearch(time, flux, min_p, max_p):
     '''
@@ -119,16 +119,13 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
             print('Starting Lomb-Scargle period search')
             nflux = flux #- ptrend + np.nanmedian(ptrend)
             ntime = ds.time - ds.time.mean()
-            fig=plt.figure()
             plt.plot(ds.time,flux,'k')
             plt.plot(ds.time,ptrend,'r')
             plt.show()
             pflux = np.poly1d(np.polyfit(ntime[mask], nflux[mask], 9))(ntime)
-            fig=plt.figure()
             plt.plot(ds.time,nflux,'k')
             plt.plot(ds.time,pflux,'r')
             plt.show()
-            fig=plt.figure()
             plt.plot(ds.time,nflux-pflux,'k')
             plt.show()
 

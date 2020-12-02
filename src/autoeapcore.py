@@ -95,7 +95,13 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     if len(whichstarisinaperture) > 1:
         magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
         magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 4:
+        brightstar_at = np.argmin(gaia['Gmag'][whichstarisinaperture])
+        bright_X = gaia['x'][whichstarisinaperture][brightstar_at]
+        bright_Y = gaia['y'][whichstarisinaperture][brightstar_at]
+        bright_star_is_outside_of_CCD = False
+        if bright_X==-0.5 or bright_Y==-0.5 or bright_X==segm.data.shape[1]-0.5 or bright_Y==segm.data.shape[0]-0.5:
+            bright_star_is_outside_of_CCD = True
+        if np.min(magdiff) > 4 and not bright_star_is_outside_of_CCD:
             numberofstars = 0
             whichstarisinaperture = []
 
@@ -103,7 +109,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     if len(whichstarisinaperture) > 1:
         magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
         magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=17:
+        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=17 and not bright_star_is_outside_of_CCD:
             numberofstars = 0
             whichstarisinaperture = []
 

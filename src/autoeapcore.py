@@ -124,9 +124,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
         distances = distance_matrix(pos_brightest,np.c_[gaia['x'][whichstarisinaperture][magorder][1:],gaia['y'][whichstarisinaperture][magorder][1:]])[0]
         close_stars_at = np.where( (distances>0) & (distances<2.828) )[0]
 
-        close_and_similar_stars = np.where( close_stars_at == magdiffs_at )[0]
-
-        if len(magdiffs_at)>0 and len(close_and_similar_stars)>0 and magdiffs_at[0] == 0 and close_and_similar_stars[0]==0:
+        if len(magdiffs_at)>0 and len(close_stars_at)>0 and magdiffs_at[0] == 0 and close_stars_at[0]==0:
             numberofstars = 0
             whichstarisinaperture = []
 

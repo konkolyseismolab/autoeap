@@ -531,6 +531,9 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
             elif wehaveajump:
                 if nfeature<numfeatureslist[apindex-1]: break
                 elif nfeature>numfeatureslist[apindex-1]:
+                    if apindex>ROI[1]/0.85*0.8 and np.where(np.array(numfeatureslist[apindex:int(ROI[1]/0.85*0.9)])!=nfeature)[0].sum() != 0:
+                        # Do not accept second jump if it just a sudden one!
+                        continue
                     # Second jump up
                     apertures=countergrid_all>apindex;
                     extensionprospects=True

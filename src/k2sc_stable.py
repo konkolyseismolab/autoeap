@@ -117,7 +117,7 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
         ## --------------------------
         if ofrac < 0.9:
             print('Starting Lomb-Scargle period search')
-            nflux = flux - ptrend + np.nanmedian(ptrend)
+            nflux = flux #- ptrend + np.nanmedian(ptrend)
             ntime = ds.time - ds.time.mean()
             fig=plt.figure()
             plt.plot(ds.time,flux,'k')

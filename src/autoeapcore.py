@@ -99,11 +99,11 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
             numberofstars = 0
             whichstarisinaperture = []
 
-    # If >19 mag stars contaminating aperture, do not split aperture
+    # If >17 mag stars contaminating aperture, do not split aperture
     if len(whichstarisinaperture) > 1:
         magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
         magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 3 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=19:
+        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=17:
             numberofstars = 0
             whichstarisinaperture = []
 

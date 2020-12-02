@@ -931,6 +931,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=lclist[variableindex].time.value.ptp()/2)
                 except AttributeError:
                     period, fap = psearch(lclist[variableindex].time,lclist[variableindex].flux,min_p=0,max_p=lclist[variableindex].time.ptp()/2)
+                print('Proposed period for periodic kernel is %.2f' % period)
 
                 lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
 

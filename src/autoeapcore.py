@@ -822,7 +822,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             _, num_features=snm.label(prelimap_int)
             numfeatureslist.append(num_features)
 
-        ROI=[100, len(tpf.flux)*0.85]
+        ROI=[100, len(tpf.flux)*0.80]
         apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH)
 
         if save_plots or show_plots:

@@ -117,7 +117,15 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
             print('Starting Lomb-Scargle period search')
             nflux = flux - ptrend + np.nanmedian(ptrend)
             ntime = ds.time - ds.time.mean()
+            plt.plot(ds.time,flux,'k')
+            plt.plot(ds.time,ptrend,'r')
+            plt.show()
             pflux = np.poly1d(np.polyfit(ntime[mask], nflux[mask], 9))(ntime)
+            plt.plot(ds.time,nflux,'k')
+            plt.plot(ds.time,pflux,'r')
+            plt.show()
+            plt.plot(ds.time,nflux-pflux,'k')
+            plt.show()
 
             period, fap = psearch(ds.time[mask], (nflux-pflux)[mask], ls_min_period, ls_max_period)
 

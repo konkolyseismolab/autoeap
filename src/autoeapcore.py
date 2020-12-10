@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import lightkurve
 import warnings
-from numba import jit
 
 class autoeapFutureWarning(Warning):
     """Class for knowing that LightKurve 2.x fucked up my life."""
@@ -242,7 +241,6 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
 
         return apsbckup
 
-@jit(nopython=True,fastmath=True,cache=True)
 def apdrawer(intgrid):
     down=[];up=[];left=[];right=[]
     for i, eachline in enumerate(intgrid):

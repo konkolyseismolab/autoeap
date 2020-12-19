@@ -7,13 +7,240 @@ import numpy as np
 import matplotlib.pyplot as plt
 import lightkurve
 import warnings
-from numba import jit
 
 class autoeapFutureWarning(Warning):
     """Class for knowing that LightKurve 2.x fucked up my life."""
     pass
 
-@jit(nopython=True,fastmath=True,cache=True)
+def get_gaia(tpf, magnitude_limit=18):
+    from astropy.coordinates import SkyCoord, Angle
+    import astropy.units as u
+
+    """Make the Gaia Figure Elements"""
+    # Get the positions of the Gaia sources
+    c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
+    # Use pixel scale for query size
+    pix_scale = 4.0  # arcseconds / pixel for Kepler, default
+    if tpf.mission == 'TESS':
+        pix_scale = 21.0
+    rad = np.sqrt(tpf.shape[1]**2+tpf.shape[2]**2)*pix_scale / 2
+    # We are querying with a diameter as the radius, overfilling by 2x.
+    from astroquery.vizier import Vizier
+    Vizier.ROW_LIMIT = -1
+    result = Vizier.query_region(c1, catalog=["I/345/gaia2"],
+                                 radius=Angle(rad, "arcsec"))
+    no_targets_found_message = ValueError('Either no sources were found in the query region '
+                                          'or Vizier is unavailable')
+    too_few_found_message = ValueError('No sources found brighter than {:0.1f}'.format(magnitude_limit))
+    if result is None:
+        raise no_targets_found_message
+    elif len(result) == 0:
+        raise too_few_found_message
+    result = result["I/345/gaia2"].to_pandas()
+    result = result[result.Gmag < magnitude_limit]
+    result.reset_index(drop=True, inplace=True)
+    if len(result) == 0:
+        raise no_targets_found_message
+    radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
+    coords = tpf.wcs.all_world2pix(radecs, 1) ## TODO, is origin supposed to be zero or one?
+    year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
+    pmra = ((np.nan_to_num(np.asarray(result.pmRA)) * u.milliarcsecond/u.year) * year).to(u.deg).value
+    pmdec = ((np.nan_to_num(np.asarray(result.pmDE)) * u.milliarcsecond/u.year) * year).to(u.deg).value
+    result.RA_ICRS += pmra
+    result.DE_ICRS += pmdec
+
+    um = (coords[:, 0]-1>=-1) & (coords[:, 1]-1>=-1) & (coords[:, 0]-1<=tpf.shape[2]+1) & (coords[:, 1]-1<=tpf.shape[1]+1)
+    result = result[um]
+    coords = coords[um]
+
+    # Gently size the points by their Gaia magnitude
+    sizes = 64.0 / 2**(result['Gmag']/5.0)
+    one_over_parallax = 1.0 / (result['Plx']/1000.)
+    data=dict(  ra=result['RA_ICRS'].to_numpy(),
+                dec=result['DE_ICRS'].to_numpy(),
+                source=result['Source'].astype(str).to_numpy(),
+                Gmag=result['Gmag'].to_numpy(),
+                plx=result['Plx'].to_numpy(),
+                one_over_plx=one_over_parallax.to_numpy(),
+                x=coords[:, 0]-1,
+                y=coords[:, 1]-1,
+                size=sizes.to_numpy())
+
+    return data
+
+def how_many_stars_inside_aperture(apnum,segm,gaia):
+    '''Count number of Gaia objects inside each aperture'''
+    filtered=apdrawer((segm==apnum)*1)
+    not_split_flag = 0
+
+    whichstarisinaperture = []
+    numberofstars = 0
+    for whichstar in range(len(gaia['x'])):
+        count = 0
+        onedge = False
+        for x in range(len(filtered)):
+            p1,p2 = np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5
+            if p1[0]==p1[1] and p1[0]>gaia['x'][whichstar] and np.maximum(p2[0],p2[1])>=gaia['y'][whichstar]>=np.minimum(p2[0],p2[1]):
+                count += 1
+            elif p1[0]==p1[1] and np.allclose(gaia['x'][whichstar],p1[0]) and np.maximum(p2[0],p2[1])>=gaia['y'][whichstar]>=np.minimum(p2[0],p2[1]):
+                # star is on the edge of mask
+                onedge=True
+
+        if count>0 and (count+1)%2==0 or onedge:
+            numberofstars += 1
+            whichstarisinaperture.append(whichstar)
+
+    # If there is a very large brightness difference, do not split aperture
+    if len(whichstarisinaperture) > 1:
+        magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
+        magdiff = magdiff[ magdiff> 0]
+        brightstar_at = np.argmin(gaia['Gmag'][whichstarisinaperture])
+        bright_X = gaia['x'][whichstarisinaperture][brightstar_at]
+        bright_Y = gaia['y'][whichstarisinaperture][brightstar_at]
+        bright_star_is_outside_of_CCD = False
+        if bright_X==-0.5 or bright_Y==-0.5 or bright_X==segm.data.shape[1]-0.5 or bright_Y==segm.data.shape[0]-0.5:
+            bright_star_is_outside_of_CCD = True
+        if np.min(magdiff) > 4 and not bright_star_is_outside_of_CCD:
+            numberofstars = 0
+            whichstarisinaperture = []
+
+    # If >17 mag stars contaminating aperture, do not split aperture
+    if len(whichstarisinaperture) > 1:
+        magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
+        magdiff = magdiff[ magdiff> 0]
+        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=17 and not bright_star_is_outside_of_CCD:
+            numberofstars = 0
+            whichstarisinaperture = []
+
+    # If all stars inside aperture >19 mag, do not split aperture
+    if len(whichstarisinaperture) > 1:
+        if np.all( gaia['Gmag'][whichstarisinaperture]>19 ):
+            numberofstars = 0
+            whichstarisinaperture = []
+
+    # If there is <2 mag differences between stars within 3.0 pix, do not split aperture
+    if len(whichstarisinaperture) > 1:
+        from scipy.spatial import distance_matrix
+
+        magorder = np.argsort(gaia['Gmag'][whichstarisinaperture])
+        magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) <=2.5)[0]
+
+        pos_brightest = np.c_[gaia['x'][whichstarisinaperture][magorder][0],gaia['y'][whichstarisinaperture][magorder][0]]
+        distances = distance_matrix(pos_brightest,np.c_[gaia['x'][whichstarisinaperture][magorder][1:],gaia['y'][whichstarisinaperture][magorder][1:]])[0]
+        close_stars_at = np.where( (distances>0) & (distances<3.0) )[0]
+
+        if len(magdiffs_at)>0 and len(close_stars_at)>0 and magdiffs_at[0] == 0 and close_stars_at[0]==0:
+            numberofstars = 0
+            whichstarisinaperture = []
+
+    # If there are similarly bright stars ignore >1 mag fainter ones
+    if len(whichstarisinaperture) > 1:
+        magorder = np.argsort(gaia['Gmag'][whichstarisinaperture])
+        magdiffs_at = np.where( np.diff(gaia['Gmag'][whichstarisinaperture][magorder]) >1)[0]
+        if np.any( magdiffs_at > 0 ):
+            whichstarisinaperture = np.split(np.array(whichstarisinaperture)[magorder],[magdiffs_at[magdiffs_at>0][0]+1])[0]
+            numberofstars = len(whichstarisinaperture)
+            not_split_flag = 1
+
+    return numberofstars,whichstarisinaperture,not_split_flag
+
+def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
+        from scipy.stats import binned_statistic_2d
+        from scipy.spatial import distance_matrix
+
+        # Keep only the brightest targets per pixel
+        npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
+                                                    range=[[-1,tpf.shape[2]],[-1,tpf.shape[1]]],
+                                                    bins=(tpf.shape[2]+1,tpf.shape[1]+1),
+                                                    statistic='count')
+
+        umbin = []
+        for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
+            umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
+                                    & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
+
+        deletevalues = []
+        for um in umbin:
+            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+
+        for key in gaia.keys():
+            gaia[key] = np.delete(gaia[key], deletevalues)
+
+        # Find close targets and keep only the brightest target
+        distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
+        umbin = np.where( (distances>0) & (distances<1.41) )
+
+        deletevalues = []
+        for um in zip(umbin[0],umbin[1]):
+            um = np.array(um)
+            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+
+        deletevalues = np.unique(deletevalues)
+
+        if len(deletevalues)>0:
+            for key in gaia.keys():
+                gaia[key] = np.delete(gaia[key], deletevalues)
+
+        apsbckup = aps.copy()
+        # Move stars near edge closer to edge
+        um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
+        if len(um)>0:
+            gaia['x'][um]=-0.5
+
+        um = np.where( (-0.5>=gaia['y']) & (gaia['y']>=-1) )[0]
+        if len(um)>0:
+            gaia['y'][um]=-0.5
+
+        um = np.where( (tpf.flux.shape[2]+0.5>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
+        if len(um)>0:
+            gaia['x'][um]=tpf.flux.shape[2]-0.5
+
+        um = np.where( (tpf.flux.shape[1]+0.5>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
+        if len(um)>0:
+            gaia['y'][um]=tpf.flux.shape[1]-0.5
+
+        weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
+        for apnumber in range(1,np.max(aps)+1):
+            _currentmaxapnumber = np.max(apsbckup)
+            starinsideaperture,whichstarisinaperture,_ = how_many_stars_inside_aperture(apnumber,aps,gaia)
+            if gaia is not None and starinsideaperture > 1:
+                if show_plots or save_plots:
+                    fig = plt.figure()
+                    plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
+                    plt.imshow(aps,origin='lower')
+
+                    filtered=apdrawer((aps==apnumber)*1)
+                    for x in range(len(filtered)):
+                        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=3)
+
+                    plt.plot(gaia['x'],gaia['y'],'kx',ms=20)
+                    plt.plot(gaia['x'],gaia['y'],'ko')
+
+                thismask = np.where(aps==apnumber)
+                for y,x in zip(thismask[0],thismask[1]):
+                    dist = []
+                    for gaiaID in whichstarisinaperture:
+                        dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2) * weight[gaiaID]  )
+
+                    if show_plots or save_plots:
+                        text = plt.text(x, y, str(round(np.min(dist),1)) ,
+                                            ha="center", va="center", color='C'+str(np.argmin(dist)))
+
+                    mindistat = np.argmin(dist)
+                    if mindistat==0: continue
+                    else:
+                        apsbckup[y,x] = _currentmaxapnumber+mindistat
+
+                if show_plots or save_plots:
+                    plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
+                    plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
+                    plt.tight_layout()
+                    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png')
+                    if show_plots: plt.show()
+                    plt.close(fig)
+
+        return apsbckup
+
 def apdrawer(intgrid):
     down=[];up=[];left=[];right=[]
     for i, eachline in enumerate(intgrid):
@@ -203,8 +430,10 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         mask_saturated  = np.zeros_like(tpf.flux[0],dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
-        mask_saturated[tpfdata>180000] = 1
-        tpfdata[       tpfdata>180000] = 0
+        mask_saturated[tpfdata>190000] = 1
+        # Do not mask middle region as it may contain a bright target
+        mask_saturated[ 2:tpf.flux.shape[1]-2  , 2:tpf.flux.shape[2]-2  ] = 0
+        tpfdata[   mask_saturated==1 ] = 0
         # Switch off warnings fo detected nan,inf values
         with warnings.catch_warnings(record=True) as w:
             if i==0:
@@ -213,7 +442,12 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 use_meanstd_threshold = False
                 if segm.nlabels==1:
                     # if there is only one target, check if it is a merger of two
-                    for thresholdsigma in np.linspace(0,0.51,10):
+                    try: gaia = get_gaia(tpf,magnitude_limit=21)
+                    except: gaia=None
+                    if gaia is not None and (how_many_stars_inside_aperture(1,segm.data,gaia)[0]<=1 or how_many_stars_inside_aperture(1,segm.data,gaia)[2]==1):
+                        # Only one Gaia target found
+                        continue
+                    for thresholdsigma in np.linspace(0,0.51,50):
                         # Find minimum sigma level where we can find 2 targets
                         threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)
                         segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)
@@ -295,6 +529,9 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
             elif wehaveajump:
                 if nfeature<numfeatureslist[apindex-1]: break
                 elif nfeature>numfeatureslist[apindex-1]:
+                    if apindex>ROI[1]/0.85*0.8 and np.where(np.array(numfeatureslist[apindex:int(ROI[1]/0.85*0.9)])!=nfeature)[0].sum() != 0:
+                        # Do not accept second jump if it just a sudden one!
+                        continue
                     # Second jump up
                     apertures=countergrid_all>apindex;
                     extensionprospects=True
@@ -304,6 +541,19 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
         if not wehaveajump:
             apindex=int(filterpassingpicsnum/TH)
             apertures=(countergrid_all>apindex)
+            backward_jump = False
+            for apind, nfeature in enumerate(numfeatureslist):
+                # Maximize aperture size if TH is used
+                if apind>ROI[0] and apind<apindex and nfeature<numfeatureslist[apind-1]:
+                    apertures=countergrid_all>apind
+                    print('Backward jump found')
+                    apindexfinal = apind
+                    backward_jump = True
+            if backward_jump: apindex = apindexfinal
+            if np.sum(apertures)==0:
+                # if too few pixels remaining
+                apindex = int(countergrid_all.max()-1)
+                apertures=(countergrid_all>apindex)
             extensionprospects=False
             apindexfinal = apindex
 
@@ -392,7 +642,8 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     print('Iteration:', iterationnum)
 
     #iterationnum is a one based index, the number of the lc is zero based indexed
-    max_over_mean=[]
+    max_over_mean= []
+    max_powers   = []
 
     nrows = len(lclist)
     fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
@@ -434,14 +685,21 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         power     = power[    2/lc.time.ptp() < frequency]
         frequency = frequency[2/lc.time.ptp() < frequency]
 
-        winsorize = power<np.nanpercentile(power,90)
+        winsorize = power<np.nanpercentile(power,95)
 
         max_over_mean.append(np.nanmax(power)/np.nanmean(power[winsorize]))
+        max_powers.append(np.nanmax(power))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
     if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
+
+    # If there is a very large amplitude variable, do not drop it!
+    max_powers_ratio = np.max(max_powers)/np.array(max_powers)
+    max_powers_ratio = max_powers_ratio[max_powers_ratio>1]
+    if len(max_powers_ratio)>0 and np.min(max_powers_ratio)>1e06:
+        return np.argmax(max_powers)
 
     return np.nanargmax(max_over_mean)
 
@@ -577,6 +835,19 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         aps, numpeaks = snm.label(apertures)
 
+        # Query Gaia catalog
+        try: gaia = get_gaia(tpf,magnitude_limit=21)
+        except: gaia = None
+
+        if gaia is not None:
+            print('Using Gaia to separate sources')
+            # Fill apertures before splitting them
+            for apnumber in range(1,np.max(aps)+1):
+                aps[ apgapfilling(aps==apnumber)>0 ] = apnumber
+
+            apertures = apgapfilling(apertures)
+            aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=show_plots,save_plots=save_plots)
+
         # Split each target aperture
         aperturelist = []
         for x in range(1, np.max(aps)+1):
@@ -593,7 +864,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
             colorlist=['black','yellow','green','blue','cyan','magenta','white','black','yellow','green',
                        'blue','cyan','magenta','white','black','yellow','green','blue','cyan','magenta',
-                       'white','black','yellow','green','blue','cyan','magenta','white']
+                       'white','black','yellow','green','blue','cyan','magenta','white']*2
             for i, ithap in enumerate(gapfilledaperturelist):
                 filtered=apdrawer(ithap*1)
                 for x in range(len(filtered)):
@@ -661,6 +932,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=lclist[variableindex].time.value.ptp()/2)
                 except AttributeError:
                     period, fap = psearch(lclist[variableindex].time,lclist[variableindex].flux,min_p=0,max_p=lclist[variableindex].time.ptp()/2)
+                print('Proposed period for periodic kernel is %.2f' % period)
 
                 lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
 

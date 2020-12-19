@@ -115,13 +115,14 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
         ## --------------------------
         if ofrac < 0.9:
             print('Starting Lomb-Scargle period search')
-            nflux = flux - ptrend + np.nanmedian(ptrend)
+            nflux = flux #- ptrend + np.nanmedian(ptrend)
             ntime = ds.time - ds.time.mean()
             pflux = np.poly1d(np.polyfit(ntime[mask], nflux[mask], 9))(ntime)
 
             period, fap = psearch(ds.time[mask], (nflux-pflux)[mask], ls_min_period, ls_max_period)
 
             if fap < 1e-50:
+                print('Found period at: %.2f' % period)
                 ds.is_periodic = True
                 ds.ls_fap    = fap
                 ds.ls_period = period

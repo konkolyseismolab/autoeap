@@ -745,7 +745,9 @@ def splinecalc(time,flux,window_length=20):
                             break_tolerance=0.5,
                             edge_cutoff=False)
 
-    splinedLC *= nanmean(flux)
+    # Contamination is additive, must be subtracted!
+    splinedLC = flux-trendLC
+    splinedLC += nanmean(flux)
 
     return splinedLC, trendLC
 

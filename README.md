@@ -90,8 +90,8 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
 ## Available options
  - `apply_K2SC` If `True`, after the raw photomery, K2SC will be applied to remove systematics from the extracted light curve.
  - `remove_spline` If `True`, after the raw photomery, a low-order spline will be fitted and removed from the extracted light curve. If ``apply_K2SC`` is also `True`, then this step will be done after the K2SC.
- - `save_lc` If `True`, the final light curve will be save as a file.
- - `campaign` If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign.
+ - `save_lc` If `True`, the intermediate and the final light curves will be save as a file.
+ - `campaign` If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign. Otherwise that campaign will be used in which the target were first observed.
  - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`.
  - `show_plots` If `True`, all the plots will be displayed.
  - `save_plots` If `True`, all the plots will be saved to a subdirectory.

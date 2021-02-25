@@ -865,7 +865,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
                 plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
 
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'tpf_aperture_after_CDPP_correction.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpf_aperture_after_CDPP_correction.png')
             if show_plots: plt.show()
             plt.close(fig)
     else:

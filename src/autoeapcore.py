@@ -735,14 +735,22 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     plt.close(fig)
 
 def splinecalc(time,flux,window_length=20):
-    from wotan import flatten
+    from wotan import flatten,slide_clip
     from numpy import nanmean
 
-    splinedLC, trendLC = flatten(time, flux,
+    clipped_flux = slide_clip(time,flux,
+        window_length=window_length,
+        low=3,
+        high=3,
+        method='mad',
+        center='median'
+        )
+
+    splinedLC, trendLC = flatten(time, clipped_flux,
                             method='rspline',
                             window_length=window_length,
                             return_trend=True,
-                            break_tolerance=0.5,
+                            break_tolerance=0,
                             edge_cutoff=False)
 
     # Contamination is additive, must be subtracted!

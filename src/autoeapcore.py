@@ -868,15 +868,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         gapfilledaperturelist = np.asarray(gapfilledaperturelist)>0
 
         if save_plots or show_plots:
+            from itertools import cycle
             fig = tpfplot(tpf,apindex,apertures,aps)
 
-            colorlist=['black','yellow','green','blue','cyan','magenta','white','black','yellow','green',
-                       'blue','cyan','magenta','white','black','yellow','green','blue','cyan','magenta',
-                       'white','black','yellow','green','blue','cyan','magenta','white']*2
-            for i, ithap in enumerate(gapfilledaperturelist):
+            colors=cycle(['black','yellow','green','blue','cyan','magenta','white'])
+            for i, (ithap,color) in enumerate( zip(gapfilledaperturelist,colors)  ):
                 filtered=apdrawer(ithap*1)
                 for x in range(len(filtered)):
-                    plt.plot(filtered[x][0],filtered[x][1],c=colorlist[i],linewidth=4)
+                    plt.plot(filtered[x][0],filtered[x][1],c=color,linewidth=4)
 
             if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_iternum_'+str(iterationnum)+'.png')
             if show_plots: plt.show()

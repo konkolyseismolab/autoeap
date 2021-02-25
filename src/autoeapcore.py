@@ -274,7 +274,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     colnums = np.arange( tpf.column, tpf.column+tpf.shape[2])
     rownums = np.arange( tpf.row,    tpf.row   +tpf.shape[1])
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=( len(colnums)//2,len(rownums)//2 ))
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
         try: plt.imshow(np.log(20+tpf.flux[cadence].value),cmap='viridis',origin='lower')
@@ -709,26 +709,24 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     colnums = np.arange( tpf.column, tpf.column+tpf.shape[2])
     rownums = np.arange( tpf.row,    tpf.row   +tpf.shape[1])
 
-    fig, ax = plt.subplots()
-    im = ax.imshow(afg,cmap='viridis',origin='lower')
+    fig = plt.figure(figsize=( len(colnums)//2 , len(rownums)//2 ))
+    plt.imshow(afg,cmap='viridis',origin='lower')
 
-    ax.set_xticks(np.arange(len(colnums)))
-    ax.set_yticks(np.arange(len(rownums)))
-    ax.set_xticklabels(colnums)
-    ax.set_yticklabels(rownums)
+    plt.xticks(np.arange(len(colnums)) , colnums)
+    plt.yticks(np.arange(len(rownums)) , rownums)
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=0, ha="right",
+    plt.setp(plt.gca().get_xticklabels(), rotation=0, ha="right",
              rotation_mode="anchor")
 
     # Loop over data dimensions and create text annotations.
     for i in range(len(colnums)):
         for j in range(len(rownums)):
-            text = ax.text(i, j, afg[j, i],
+            text = plt.text(i, j, afg[j, i],
                            ha="center", va="center", color="w")
 
-    ax.set_title("Aperture frequency grid",fontsize=20)
-    fig.tight_layout()
+    plt.title("Aperture frequency grid",fontsize=20)
+    plt.tight_layout()
 
     if save_plots: plt.savefig(filename+'.png')
     if show_plots: plt.show()

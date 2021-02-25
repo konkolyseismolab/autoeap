@@ -517,7 +517,7 @@ def pixelremoval(gapfilledaperturelist,variableindex):
     return removethesepixels
 
 
-def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
+def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,debug=False):
     wehaveajump = False
     for apindex, nfeature in enumerate(numfeatureslist):
         if apindex>ROI[0] and apindex<ROI[1]:
@@ -546,7 +546,7 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
                 # Maximize aperture size if TH is used
                 if apind>ROI[0] and apind<apindex and nfeature<numfeatureslist[apind-1]:
                     apertures=countergrid_all>apind
-                    print('Backward jump found')
+                    if debug: print('Backward jump found')
                     apindexfinal = apind
                     backward_jump = True
             if backward_jump: apindex = apindexfinal
@@ -573,9 +573,10 @@ def tpfplot(tpf,apindex,apertures,aps):
     for x in range(len(filtered)):
         plt.plot(filtered[x][0],filtered[x][1],c='red', linewidth=8)
 
-    for x in range(1,np.max(aps)+1):
-        cords=np.where(x==aps)
-        plt.text(cords[1][0],cords[0][0],str(x),fontsize=30)
+    if aps is not None:
+        for x in range(1,np.max(aps)+1):
+            cords=np.where(x==aps)
+            plt.text(cords[1][0],cords[0][0],str(x),fontsize=30)
 
     #if show_plots: plt.show()
     return fig
@@ -703,6 +704,179 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
 
     return np.nanargmax(max_over_mean)
 
+def CreateMaskCorona(mask):
+    # Extend the mask array with one pixel width around the initial mask
+    mask_placeholder = np.copy(mask)
+    for i in range(mask.shape[0]): #column
+        for j in range(mask.shape[1]): #row
+            if i==0 and j==0 :
+                if True in mask[0:i+2,0:j+2]:
+                    mask_placeholder[i,j] = True
+            elif i==0:
+                if True in mask[0:i+2,j-1:j+2]:
+                    mask_placeholder[i,j] = True
+            elif j==0:
+                if True in mask[i-1:i+2,0:j+2]:
+                    mask_placeholder[i,j] = True
+            else:
+                if True in mask[i-1:i+2,j-1:j+2]:
+                    mask_placeholder[i,j] = True
+
+    return mask_placeholder
+
+def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initialmask,tpf,
+                               targettpf='',
+                               save_plots=False,
+                               show_plots=False,
+                               debug=False):
+
+    newfinallc = None
+
+    initialcdpp = lclist[variableindex].estimate_cdpp()
+    print('Initial CDPP=',  initialcdpp)
+
+    initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
+
+    # Append 1-pixel-width corona to aperture
+    newcorona = CreateMaskCorona(gapfilledaperturelist[variableindex])
+
+    newcorona[initialmask] = False
+    umcorona = np.where(newcorona)
+
+    # Loop over the pixels in corona and calculate CDPP for each extended aperture
+    cdpp_list = []
+    for ii,jj in zip(umcorona[0],umcorona[1]):
+
+        if gapfilledaperturelist[variableindex][ii,jj]:
+            # Do not check again the already existing mask
+            continue
+
+        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        newmask[gapfilledaperturelist[variableindex]] = True
+        newmask_nocorona = newmask.copy()
+        newmask[ ii,jj ] = True
+
+        if show_plots:
+            print('Checking CDPP with +1 pixel from corona (dashed orange)')
+            fig = tpfplot(tpf,0,initialmask,None)
+            filtered=apdrawer(newmask*1)
+            for x in range(len(filtered)):
+                plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
+            filtered=apdrawer(newmask_nocorona*1)
+            for x in range(len(filtered)):
+                plt.plot(filtered[x][0],filtered[x][1],linewidth=4,c='k')
+            if show_plots: plt.show()
+            plt.close(fig)
+
+        newlc = tpf.to_lightcurve(aperture_mask=newmask).remove_nans().remove_outliers()
+        lccdpp = newlc.estimate_cdpp()
+        if debug: print('New CDPP =', lccdpp )
+
+        cdpp_list.append(lccdpp)
+
+        if show_plots:
+            fig,axs = plt.subplots(2,1,figsize=(20,8))
+            try: axs[0].plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
+            except AttributeError: axs[0].plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
+            axs[0].set_xlabel('Time')
+            axs[0].set_ylabel('Flux')
+            axs[0].set_title('The lc which is identified as a variable')
+
+            try: axs[1].plot(newlc.time.value,newlc.flux.value,c='k')
+            except AttributeError: axs[1].plot(newlc.time,newlc.flux,c='k')
+            axs[1].set_xlabel('Time')
+            axs[1].set_ylabel('Flux')
+            axs[1].set_title('The lc after adding +1 pixel from corona')
+            plt.tight_layout()
+            if show_plots: plt.show()
+            plt.close(fig)
+
+    cdpp_list = np.array(cdpp_list)
+    if debug:
+        plt.title('CDPPs after adding +1-1 pixels from corona')
+        plt.plot(cdpp_list)
+        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
+        plt.axhline(initialcdpp-3*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
+        plt.xlabel('Final aperture + 1 pixel from corona')
+        plt.ylabel('CDPP')
+        plt.legend()
+        plt.show()
+
+    # Check if new aperture's CDPP is better with at least 3-sigma
+    bestcdpp = np.argmin(cdpp_list)
+    if cdpp_list[bestcdpp] < initialcdpp-3*np.std(cdpp_list):
+        print('Extending aperture with new CDPP=',cdpp_list[bestcdpp])
+        newmask_pixels = []
+
+        i0,j0 = umcorona[0][bestcdpp], umcorona[1][bestcdpp]
+        newmask_pixels.append([i0,j0])
+
+        adjacent_pixels = np.where( (np.abs(umcorona[0]-i0)<=1) & (np.abs(umcorona[1]-j0)<=1) )[0]
+
+        for adjpix in adjacent_pixels:
+            iadj = umcorona[0][adjpix]
+            jadj = umcorona[1][adjpix]
+
+            newmask = np.full_like(newcorona,False,dtype=np.bool)
+            newmask[ iadj,jadj ] = True
+            newmask[ i0,j0 ] = True
+            newmask[gapfilledaperturelist[variableindex]] = True
+
+            newlc = tpf.to_lightcurve(aperture_mask=newmask).remove_nans().remove_outliers()
+            lccdpp = newlc.estimate_cdpp()
+
+            if lccdpp < cdpp_list[bestcdpp]:
+                if debug: print('Adding another pixel to new aperture with new cdpp=',lccdpp)
+                newmask_pixels.append([iadj,jadj])
+
+        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        for (ii,jj) in newmask_pixels:
+            newmask[ ii,jj ] = True
+        newmask[initialmask] = False
+        newmask[gapfilledaperturelist[variableindex]] = True
+
+        newmask = apgapfilling(newmask).astype(np.bool)
+        newmask[initialmask] = False
+        newmask[gapfilledaperturelist[variableindex]] = True
+
+        newfinallc = tpf.to_lightcurve(aperture_mask=newmask).remove_nans().remove_outliers()
+
+        if save_plots or show_plots:
+            fig,axs = plt.subplots(2,1,figsize=(20,8))
+            try: axs[0].plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
+            except AttributeError: axs[0].plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
+            axs[0].set_xlabel('Time')
+            axs[0].set_ylabel('Flux')
+            axs[0].set_title('The lc which is identified as a variable')
+
+            try: axs[1].plot(newlc.time.value,newlc.flux.value,c='k')
+            except AttributeError: axs[1].plot(newlc.time,newlc.flux,c='k')
+            axs[1].set_xlabel('Time')
+            axs[1].set_ylabel('Flux')
+            axs[1].set_title('The lc after aperture size optimization')
+            plt.tight_layout()
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_after_CDPP_correction.png')
+            if show_plots: plt.show()
+            plt.close(fig)
+
+            fig = tpfplot(tpf,0,initialmask,None)
+            filtered=apdrawer(newmask*1)
+            for x in range(len(filtered)):
+                plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
+
+            plt.tight_layout()
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'tpf_aperture_after_CDPP_correction.png')
+            if show_plots: plt.show()
+            plt.close(fig)
+    else:
+         print('Keeping aperture with initial CDPP')
+
+    if newfinallc is not None:
+        # Update final lc with the newly extended one
+        lclist[variableindex] = newfinallc
+
+    return lclist
+
 
 def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
 
@@ -759,7 +933,8 @@ def splinecalc(time,flux,window_length=20):
 
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None, TH=8,
-                        show_plots=False, save_plots=False, window_length=20):
+                        show_plots=False, save_plots=False, window_length=20,
+                        debug=False):
     """
     ``createlightcurve`` performs photomerty on K2 variable stars
 
@@ -836,7 +1011,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             numfeatureslist.append(num_features)
 
         ROI=[100, len(tpf.flux)*0.85]
-        apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH)
+        apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
 
         if save_plots or show_plots:
             plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,targettpf,show_plots=show_plots,save_plots=save_plots)
@@ -866,6 +1041,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         for each in aperturelist:
             gapfilledaperturelist.append(apgapfilling(each))
         gapfilledaperturelist = np.asarray(gapfilledaperturelist)>0
+
+        # Store inital apertures to use for the final optimization
+        if iterationnum == 1:
+            gapfilledaperturelist_initial = gapfilledaperturelist.copy()
 
         if save_plots or show_plots:
             from itertools import cycle
@@ -900,6 +1079,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
         if save_plots or show_plots:
+
             fig = plt.figure(figsize=(20,4))
             try: plt.plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
             except AttributeError: plt.plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
@@ -926,6 +1106,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         else:
             print('Iteration finished')
+
+            print('Optimizing final aperture')
+            lslist = optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,gapfilledaperturelist_initial,tpf,
+                                                targettpf=targettpf,
+                                                save_plots=save_plots,
+                                                show_plots=show_plots,
+                                                debug=debug)
 
             if apply_K2SC:
                 print('Applying K2SC')

@@ -1152,7 +1152,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
 
                 # --- Removing outliers before saving light curve (or removing spline) ---
-                lclist[variableindex] = lclist[variableindex].remove_nans().remove_outliers()
+                lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)
+                lclist[variableindex].corr_flux = lclist[variableindex].corr_flux[~badpts]
 
                 if save_plots or show_plots:
                     fig = plt.figure(figsize=(20,4))

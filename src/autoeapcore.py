@@ -304,7 +304,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
 
 
 def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
-
+    """Loop over each image and detect stars for each of them separatly"""
     import os
 
     def isnotebook():
@@ -347,11 +347,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
             tpf = result.download()
             print('TPF found on MAST: '+result.table['observation'].tolist()[0] )
 
-    # Add underscores to output filenames
+    # --- Add underscores to output filenames ---
     inputfile = inputfile.replace(' ','_')
     inputfile = os.path.abspath(inputfile).split('/')[-1]
 
-    # create folder to store plots
+    # --- Create folder to store plots ---
     if save_plots:
         try:
             os.mkdir(  os.path.abspath(inputfile+'_plots')  )
@@ -369,7 +369,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         psfc1 = tpf.estimate_centroids()[0]
         psfc2 = tpf.estimate_centroids()[1]
 
-    # Remove wrong cadences via detecting outlier photocenters
+    # --- Remove wrong cadences via detecting outlier photocenters ---
     if len(np.where(np.abs(psfc1)>1024)[0])==0 and len(np.where(np.abs(psfc2)>1024)[0])==0:
 
         newpsfc = np.c_[psfc1,psfc2]
@@ -421,7 +421,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         plt.close(fig)
 
     print('Optimizing apertures for each cadence')
-    # Segment targets for each cadence
+    # --- Segment targets for each cadence ---
     try:
         countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
         mask_saturated  = np.zeros_like(tpf.flux[0].value,dtype=np.int)
@@ -982,26 +982,30 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     import os
     from astropy.io import ascii
 
-    # Check campaign number format
+    # --- Check campaign number format ---
     if not isinstance(campaign,(int,float,np.integer,np.floating)) and campaign is not None:
         raise ValueError('Campaign number must be integer, float or None')
 
+    # --- Loop over each image and detect stars for each of them separatly ---
     countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
-    # Add underscores to output filenames
+    # --- Add underscores to output filenames ---
     targettpf = targettpf.replace(' ','_')
     targettpf = os.path.abspath(targettpf).split('/')[-1]
 
-    #draw AFG before stacking TPFs
+    # --- Draw AFG before stacking TPFs ---
     if save_plots or show_plots:
         afgdrawer(countergrid_all,targettpf+'_plots/'+targettpf+'_AFG_before_stacking',tpf,show_plots=show_plots,save_plots=save_plots)
 
+    # --------------------------
     print('Starting iteration')
+    # --------------------------
     iterationnum=0
     while True:
 
         iterationnum+=1
 
+        # --- Count how many times a pixel has been selected ---
         numfeatureslist=[]
         for th in range(np.max(countergrid_all)):
             prelimap=countergrid_all > th
@@ -1010,15 +1014,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             _, num_features=snm.label(prelimap_int)
             numfeatureslist.append(num_features)
 
+        # --- Separate stars and define one aperture for each star ---
         ROI=[100, len(tpf.flux)*0.85]
         apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
 
         if save_plots or show_plots:
             plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,targettpf,show_plots=show_plots,save_plots=save_plots)
 
+        # --- Get aperture indices ---
         aps, numpeaks = snm.label(apertures)
 
-        # Query Gaia catalog
+        # --- Query Gaia catalog to separate close sources ---
         try: gaia = get_gaia(tpf,magnitude_limit=21)
         except: gaia = None
 
@@ -1031,18 +1037,18 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             apertures = apgapfilling(apertures)
             aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=show_plots,save_plots=save_plots)
 
-        # Split each target aperture
+        # --- Split each target aperture ---
         aperturelist = []
         for x in range(1, np.max(aps)+1):
             aperturelist.append(aps==x)
 
-        # Filling gaps in apertures
+        # --- Filling gaps in apertures ---
         gapfilledaperturelist = []
         for each in aperturelist:
             gapfilledaperturelist.append(apgapfilling(each))
         gapfilledaperturelist = np.asarray(gapfilledaperturelist)>0
 
-        # Store inital apertures to use for the final optimization
+        # --- Store inital apertures to use for the final optimization ---
         if iterationnum == 1:
             gapfilledaperturelist_initial = gapfilledaperturelist.copy()
 
@@ -1060,7 +1066,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             if show_plots: plt.show()
             plt.close(fig)
 
-        # Do photometry on each target
+        # ----------------------------
+        # Perform photometry on each target
+        # ----------------------------
         fig,axs = plt.subplots(np.max(aps),1,figsize=(12,np.max(aps)*2),squeeze=False)
         lclist=[]
         for x in range(np.max(aps)):
@@ -1077,7 +1085,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         if show_plots: plt.show()
         plt.close(fig)
 
+        # --- Get index of variable star's aperture ---
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
+
         if save_plots or show_plots:
 
             fig = plt.figure(figsize=(20,4))
@@ -1092,14 +1102,16 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             plt.close(fig)
 
         if extensionprospects:
-            '''If we have more than one target,
-               we remove the non-variables, then detect stars again.'''
+            # ------------------------------------------------------
+            # If we have more than one target,
+            # we remove the non-variables, then detect stars again.
+            # ------------------------------------------------------
 
             removethesepixels = pixelremoval(gapfilledaperturelist,variableindex)
 
             countergrid_all = countergrid_all*np.invert(removethesepixels)*1
 
-            #draw AFG after we removed non-variable targets
+            # --- Draw AFG after we removed non-variable targets ---
             if save_plots or show_plots:
                 afgdrawer(countergrid_all,targettpf+'_plots/'+targettpf+'_AFG_after_'+str(iterationnum)+'_iterations',tpf,
                             show_plots=show_plots,save_plots=save_plots)
@@ -1107,6 +1119,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         else:
             print('Iteration finished')
 
+            # -----------------------------------------------------------------------
+            # Optimizing final aperture by checking CDPP for different aperture sizes
+            # -----------------------------------------------------------------------
             print('Optimizing final aperture')
             lslist = optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,gapfilledaperturelist_initial,tpf,
                                                 targettpf=targettpf,
@@ -1115,7 +1130,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                                 debug=debug)
 
             if apply_K2SC:
+                # --------------------
                 print('Applying K2SC')
+                # --------------------
 
                 from autoeap.k2sc_stable import psearch,k2sc_lc
 
@@ -1145,12 +1162,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     plt.close(fig)
 
                 if remove_spline:
+                    # --- Remove spline from K2SC corrected light curve ---
                     print('Removing spline')
+
                     try:
                         splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux,window_length=window_length)
                     except AttributeError:
                         splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].corr_flux,window_length=window_length)
+
                     if save_lc:
+                        # --- Save K2SC + spline corrected light curve ---
+
                         print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc_spline.lc')
                         table = lclist[variableindex].to_table()['time','flux','flux_err']
                         table['corr_flux'] = lclist[variableindex].corr_flux
@@ -1164,6 +1186,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
 
                 if save_lc:
+                    # --- Save K2SC corrected light curve ---
+
                     print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc.lc')
                     table = lclist[variableindex].to_table()['time','flux','flux_err']
                     table['corr_flux'] = lclist[variableindex].corr_flux
@@ -1180,12 +1204,16 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             break
 
     if remove_spline:
+        # --- Remove spline from raw light curve ---
         print('Removing spline')
         try:
             splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].flux.value,window_length=window_length)
         except AttributeError:
             splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].flux,window_length=window_length)
+
         if save_lc:
+            # --- Save spline corrected raw light curve ---
+
             print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_spline.lc')
             table = lclist[variableindex].to_table()['time','flux','flux_err']
             table['splined_flux'] = splinedLC
@@ -1198,6 +1226,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
 
     if save_lc:
+        # --- Save raw light curve ---
+
         print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP.lc')
         table = lclist[variableindex].to_table()['time','flux','flux_err']
         ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP.lc',overwrite=True)

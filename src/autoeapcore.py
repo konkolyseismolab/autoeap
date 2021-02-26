@@ -768,7 +768,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             if show_plots: plt.show()
             plt.close(fig)
 
-        newlc = tpf.to_lightcurve(aperture_mask=newmask).remove_nans().remove_outliers()
+        newlc = tpf.to_lightcurve(aperture_mask=newmask)
         lccdpp = newlc.estimate_cdpp()
         if debug: print('New CDPP =', lccdpp )
 
@@ -822,7 +822,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             newmask[ i0,j0 ] = True
             newmask[gapfilledaperturelist[variableindex]] = True
 
-            newlc = tpf.to_lightcurve(aperture_mask=newmask).remove_nans().remove_outliers()
+            newlc = tpf.to_lightcurve(aperture_mask=newmask)
             lccdpp = newlc.estimate_cdpp()
 
             if lccdpp < cdpp_list[bestcdpp]:
@@ -839,7 +839,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True
 
-        newfinallc = tpf.to_lightcurve(aperture_mask=newmask).remove_nans().remove_outliers()
+        newfinallc = tpf.to_lightcurve(aperture_mask=newmask)
 
         if save_plots or show_plots:
             fig,axs = plt.subplots(2,1,figsize=(20,8))
@@ -1064,7 +1064,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         fig,axs = plt.subplots(np.max(aps),1,figsize=(12,np.max(aps)*2),squeeze=False)
         lclist=[]
         for x in range(np.max(aps)):
-            lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x]).remove_nans().remove_outliers()
+            lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x])
             lclist.append(lc)
 
             try: axs[x,0].plot(lc.time.value,lc.flux.value)
@@ -1121,9 +1121,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
-                lc.pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
-                lc.pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
+                lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
+                lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
                 lclist[variableindex].__class__ = k2sc_lc
+
                 try:
                     period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=lclist[variableindex].time.value.ptp()/2)
                 except AttributeError:
@@ -1169,6 +1170,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc.lc',overwrite=True)
 
                 print('Done')
+
+
                 try:
                     return lclist[variableindex].time.value, lclist[variableindex].corr_flux, lclist[variableindex].flux_err.value
                 except AttributeError:

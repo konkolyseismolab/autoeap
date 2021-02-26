@@ -245,7 +245,7 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
         print('Detrending time %6.3f'% (time()-tstart))
 
 
-        print(result)
+        #print(result)
         return result
 
 M_QUALITY    = 2**0

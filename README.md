@@ -44,7 +44,7 @@ plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 plt.show()
 ```
-![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_raw.png)
+![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_raw.jpg)
 
 The details of the workflow is described in [docs](https://github.com/zabop/autoeap/tree/master/docs).
 
@@ -72,7 +72,7 @@ plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 plt.show()
 ```
-![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.png)
+![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.jpg)
 
 ### Apply spline correction
 We have also built-in a method to remove trends using low-order splines. Just do to correct the raw light curve:

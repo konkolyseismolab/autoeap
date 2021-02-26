@@ -1150,6 +1150,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
 
+
+                # --- Removing outliers before saving light curve (or removing spline) ---
+                lclist[variableindex] = lclist[variableindex].remove_nans().remove_outliers()
+
                 if save_plots or show_plots:
                     fig = plt.figure(figsize=(20,4))
                     try: plt.plot(lclist[variableindex].time.value,lclist[variableindex].corr_flux)
@@ -1203,6 +1207,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
             break
 
+    # --- Removing outliers before saving light curve (or removing spline) ---
+    lclist[variableindex] = lclist[variableindex].remove_nans().remove_outliers()
+
     if remove_spline:
         # --- Remove spline from raw light curve ---
         print('Removing spline')
@@ -1213,13 +1220,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         if save_lc:
             # --- Save spline corrected raw light curve ---
-
             print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_spline.lc')
+
             table = lclist[variableindex].to_table()['time','flux','flux_err']
             table['splined_flux'] = splinedLC
             ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP_spline.lc',overwrite=True)
 
         print('Done')
+
         try:
             return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
         except AttributeError:
@@ -1227,12 +1235,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     if save_lc:
         # --- Save raw light curve ---
-
         print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP.lc')
+
         table = lclist[variableindex].to_table()['time','flux','flux_err']
         ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP.lc',overwrite=True)
 
     print('Done')
+
     try:
         return lclist[variableindex].time.value, lclist[variableindex].flux.value, lclist[variableindex].flux_err.value
     except AttributeError:

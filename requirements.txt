@@ -8,3 +8,4 @@ wotan
 tqdm>=4.25.0
 numba
 memoization
+oktopus

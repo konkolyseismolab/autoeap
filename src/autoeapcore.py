@@ -1158,7 +1158,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     # --- Remove spline from K2SC corrected light curve ---
                     print('Removing spline')
 
-                    splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time), lclist[variableindex].corr_flux,window_length=window_length)
+                    splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time),
+                                                        strip_quantity(lclist[variableindex].corr_flux),
+                                                        window_length=window_length)
 
                     if save_lc:
                         # --- Save K2SC + spline corrected light curve ---
@@ -1182,7 +1184,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 print('Done')
 
-                return strip_quantity(lclist[variableindex].time), lclist[variableindex].corr_flux, strip_quantity(lclist[variableindex].flux_err)
+                return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].corr_flux), strip_quantity(lclist[variableindex].flux_err)
 
             break
 

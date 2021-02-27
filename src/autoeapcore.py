@@ -304,7 +304,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
 
 
 def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
-
+    """Loop over each image and detect stars for each of them separatly"""
     import os
 
     def isnotebook():
@@ -347,11 +347,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
             tpf = result.download()
             print('TPF found on MAST: '+result.table['observation'].tolist()[0] )
 
-    # Add underscores to output filenames
+    # --- Add underscores to output filenames ---
     inputfile = inputfile.replace(' ','_')
     inputfile = os.path.abspath(inputfile).split('/')[-1]
 
-    # create folder to store plots
+    # --- Create folder to store plots ---
     if save_plots:
         try:
             os.mkdir(  os.path.abspath(inputfile+'_plots')  )
@@ -369,7 +369,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         psfc1 = tpf.estimate_centroids()[0]
         psfc2 = tpf.estimate_centroids()[1]
 
-    # Remove wrong cadences via detecting outlier photocenters
+    # --- Remove wrong cadences via detecting outlier photocenters ---
     if len(np.where(np.abs(psfc1)>1024)[0])==0 and len(np.where(np.abs(psfc2)>1024)[0])==0:
 
         newpsfc = np.c_[psfc1,psfc2]
@@ -421,7 +421,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         plt.close(fig)
 
     print('Optimizing apertures for each cadence')
-    # Segment targets for each cadence
+    # --- Segment targets for each cadence ---
     try:
         countergrid_all = np.zeros_like(tpf.flux[0].value,dtype=np.int)
         mask_saturated  = np.zeros_like(tpf.flux[0].value,dtype=np.int)
@@ -517,7 +517,7 @@ def pixelremoval(gapfilledaperturelist,variableindex):
     return removethesepixels
 
 
-def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
+def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,debug=False):
     wehaveajump = False
     for apindex, nfeature in enumerate(numfeatureslist):
         if apindex>ROI[0] and apindex<ROI[1]:
@@ -546,7 +546,7 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH):
                 # Maximize aperture size if TH is used
                 if apind>ROI[0] and apind<apindex and nfeature<numfeatureslist[apind-1]:
                     apertures=countergrid_all>apind
-                    print('Backward jump found')
+                    if debug: print('Backward jump found')
                     apindexfinal = apind
                     backward_jump = True
             if backward_jump: apindex = apindexfinal
@@ -573,9 +573,10 @@ def tpfplot(tpf,apindex,apertures,aps):
     for x in range(len(filtered)):
         plt.plot(filtered[x][0],filtered[x][1],c='red', linewidth=8)
 
-    for x in range(1,np.max(aps)+1):
-        cords=np.where(x==aps)
-        plt.text(cords[1][0],cords[0][0],str(x),fontsize=30)
+    if aps is not None:
+        for x in range(1,np.max(aps)+1):
+            cords=np.where(x==aps)
+            plt.text(cords[1][0],cords[0][0],str(x),fontsize=30)
 
     #if show_plots: plt.show()
     return fig
@@ -703,6 +704,179 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
 
     return np.nanargmax(max_over_mean)
 
+def CreateMaskCorona(mask):
+    # Extend the mask array with one pixel width around the initial mask
+    mask_placeholder = np.copy(mask)
+    for i in range(mask.shape[0]): #column
+        for j in range(mask.shape[1]): #row
+            if i==0 and j==0 :
+                if True in mask[0:i+2,0:j+2]:
+                    mask_placeholder[i,j] = True
+            elif i==0:
+                if True in mask[0:i+2,j-1:j+2]:
+                    mask_placeholder[i,j] = True
+            elif j==0:
+                if True in mask[i-1:i+2,0:j+2]:
+                    mask_placeholder[i,j] = True
+            else:
+                if True in mask[i-1:i+2,j-1:j+2]:
+                    mask_placeholder[i,j] = True
+
+    return mask_placeholder
+
+def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initialmask,tpf,
+                               targettpf='',
+                               save_plots=False,
+                               show_plots=False,
+                               debug=False):
+
+    newfinallc = None
+
+    initialcdpp = lclist[variableindex].estimate_cdpp()
+    print('Initial CDPP=',  initialcdpp)
+
+    initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
+
+    # Append 1-pixel-width corona to aperture
+    newcorona = CreateMaskCorona(gapfilledaperturelist[variableindex])
+
+    newcorona[initialmask] = False
+    umcorona = np.where(newcorona)
+
+    # Loop over the pixels in corona and calculate CDPP for each extended aperture
+    cdpp_list = []
+    for ii,jj in zip(umcorona[0],umcorona[1]):
+
+        if gapfilledaperturelist[variableindex][ii,jj]:
+            # Do not check again the already existing mask
+            continue
+
+        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        newmask[gapfilledaperturelist[variableindex]] = True
+        newmask_nocorona = newmask.copy()
+        newmask[ ii,jj ] = True
+
+        if show_plots:
+            print('Checking CDPP with +1 pixel from corona (dashed orange)')
+            fig = tpfplot(tpf,0,initialmask,None)
+            filtered=apdrawer(newmask*1)
+            for x in range(len(filtered)):
+                plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
+            filtered=apdrawer(newmask_nocorona*1)
+            for x in range(len(filtered)):
+                plt.plot(filtered[x][0],filtered[x][1],linewidth=4,c='k')
+            if show_plots: plt.show()
+            plt.close(fig)
+
+        newlc = tpf.to_lightcurve(aperture_mask=newmask)
+        lccdpp = newlc.estimate_cdpp()
+        if debug: print('New CDPP =', lccdpp )
+
+        cdpp_list.append(lccdpp)
+
+        if show_plots:
+            fig,axs = plt.subplots(2,1,figsize=(20,8))
+            try: axs[0].plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
+            except AttributeError: axs[0].plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
+            axs[0].set_xlabel('Time')
+            axs[0].set_ylabel('Flux')
+            axs[0].set_title('The lc which is identified as a variable')
+
+            try: axs[1].plot(newlc.time.value,newlc.flux.value,c='k')
+            except AttributeError: axs[1].plot(newlc.time,newlc.flux,c='k')
+            axs[1].set_xlabel('Time')
+            axs[1].set_ylabel('Flux')
+            axs[1].set_title('The lc after adding +1 pixel from corona')
+            plt.tight_layout()
+            if show_plots: plt.show()
+            plt.close(fig)
+
+    cdpp_list = np.array(cdpp_list)
+    if debug:
+        plt.title('CDPPs after adding +1-1 pixels from corona')
+        plt.plot(cdpp_list)
+        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
+        plt.axhline(initialcdpp-3*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
+        plt.xlabel('Final aperture + 1 pixel from corona')
+        plt.ylabel('CDPP')
+        plt.legend()
+        plt.show()
+
+    # Check if new aperture's CDPP is better with at least 3-sigma
+    bestcdpp = np.argmin(cdpp_list)
+    if cdpp_list[bestcdpp] < initialcdpp-3*np.std(cdpp_list):
+        print('Extending aperture with new CDPP=',cdpp_list[bestcdpp])
+        newmask_pixels = []
+
+        i0,j0 = umcorona[0][bestcdpp], umcorona[1][bestcdpp]
+        newmask_pixels.append([i0,j0])
+
+        adjacent_pixels = np.where( (np.abs(umcorona[0]-i0)<=1) & (np.abs(umcorona[1]-j0)<=1) )[0]
+
+        for adjpix in adjacent_pixels:
+            iadj = umcorona[0][adjpix]
+            jadj = umcorona[1][adjpix]
+
+            newmask = np.full_like(newcorona,False,dtype=np.bool)
+            newmask[ iadj,jadj ] = True
+            newmask[ i0,j0 ] = True
+            newmask[gapfilledaperturelist[variableindex]] = True
+
+            newlc = tpf.to_lightcurve(aperture_mask=newmask)
+            lccdpp = newlc.estimate_cdpp()
+
+            if lccdpp < cdpp_list[bestcdpp]:
+                if debug: print('Adding another pixel to new aperture with new cdpp=',lccdpp)
+                newmask_pixels.append([iadj,jadj])
+
+        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        for (ii,jj) in newmask_pixels:
+            newmask[ ii,jj ] = True
+        newmask[initialmask] = False
+        newmask[gapfilledaperturelist[variableindex]] = True
+
+        newmask = apgapfilling(newmask).astype(np.bool)
+        newmask[initialmask] = False
+        newmask[gapfilledaperturelist[variableindex]] = True
+
+        newfinallc = tpf.to_lightcurve(aperture_mask=newmask)
+
+        if save_plots or show_plots:
+            fig,axs = plt.subplots(2,1,figsize=(20,8))
+            try: axs[0].plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
+            except AttributeError: axs[0].plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
+            axs[0].set_xlabel('Time')
+            axs[0].set_ylabel('Flux')
+            axs[0].set_title('The lc which is identified as a variable')
+
+            try: axs[1].plot(newlc.time.value,newlc.flux.value,c='k')
+            except AttributeError: axs[1].plot(newlc.time,newlc.flux,c='k')
+            axs[1].set_xlabel('Time')
+            axs[1].set_ylabel('Flux')
+            axs[1].set_title('The lc after aperture size optimization')
+            plt.tight_layout()
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_after_CDPP_correction.png')
+            if show_plots: plt.show()
+            plt.close(fig)
+
+            fig = tpfplot(tpf,0,initialmask,None)
+            filtered=apdrawer(newmask*1)
+            for x in range(len(filtered)):
+                plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
+
+            plt.tight_layout()
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpf_aperture_after_CDPP_correction.png')
+            if show_plots: plt.show()
+            plt.close(fig)
+    else:
+         print('Keeping aperture with initial CDPP')
+
+    if newfinallc is not None:
+        # Update final lc with the newly extended one
+        lclist[variableindex] = newfinallc
+
+    return lclist
+
 
 def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
 
@@ -759,7 +933,8 @@ def splinecalc(time,flux,window_length=20):
 
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None, TH=8,
-                        show_plots=False, save_plots=False, window_length=20):
+                        show_plots=False, save_plots=False, window_length=20,
+                        debug=False):
     """
     ``createlightcurve`` performs photomerty on K2 variable stars
 
@@ -807,26 +982,30 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     import os
     from astropy.io import ascii
 
-    # Check campaign number format
+    # --- Check campaign number format ---
     if not isinstance(campaign,(int,float,np.integer,np.floating)) and campaign is not None:
         raise ValueError('Campaign number must be integer, float or None')
 
+    # --- Loop over each image and detect stars for each of them separatly ---
     countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
-    # Add underscores to output filenames
+    # --- Add underscores to output filenames ---
     targettpf = targettpf.replace(' ','_')
     targettpf = os.path.abspath(targettpf).split('/')[-1]
 
-    #draw AFG before stacking TPFs
+    # --- Draw AFG before stacking TPFs ---
     if save_plots or show_plots:
         afgdrawer(countergrid_all,targettpf+'_plots/'+targettpf+'_AFG_before_stacking',tpf,show_plots=show_plots,save_plots=save_plots)
 
+    # --------------------------
     print('Starting iteration')
+    # --------------------------
     iterationnum=0
     while True:
 
         iterationnum+=1
 
+        # --- Count how many times a pixel has been selected ---
         numfeatureslist=[]
         for th in range(np.max(countergrid_all)):
             prelimap=countergrid_all > th
@@ -835,15 +1014,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             _, num_features=snm.label(prelimap_int)
             numfeatureslist.append(num_features)
 
+        # --- Separate stars and define one aperture for each star ---
         ROI=[100, len(tpf.flux)*0.85]
-        apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH)
+        apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
 
         if save_plots or show_plots:
             plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,targettpf,show_plots=show_plots,save_plots=save_plots)
 
+        # --- Get aperture indices ---
         aps, numpeaks = snm.label(apertures)
 
-        # Query Gaia catalog
+        # --- Query Gaia catalog to separate close sources ---
         try: gaia = get_gaia(tpf,magnitude_limit=21)
         except: gaia = None
 
@@ -856,16 +1037,20 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             apertures = apgapfilling(apertures)
             aps = split_apertures_by_gaia(tpf,aps,gaia,targettpf,show_plots=show_plots,save_plots=save_plots)
 
-        # Split each target aperture
+        # --- Split each target aperture ---
         aperturelist = []
         for x in range(1, np.max(aps)+1):
             aperturelist.append(aps==x)
 
-        # Filling gaps in apertures
+        # --- Filling gaps in apertures ---
         gapfilledaperturelist = []
         for each in aperturelist:
             gapfilledaperturelist.append(apgapfilling(each))
         gapfilledaperturelist = np.asarray(gapfilledaperturelist)>0
+
+        # --- Store inital apertures to use for the final optimization ---
+        if iterationnum == 1:
+            gapfilledaperturelist_initial = gapfilledaperturelist.copy()
 
         if save_plots or show_plots:
             from itertools import cycle
@@ -881,11 +1066,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             if show_plots: plt.show()
             plt.close(fig)
 
-        # Do photometry on each target
+        # ----------------------------
+        # Perform photometry on each target
+        # ----------------------------
         fig,axs = plt.subplots(np.max(aps),1,figsize=(12,np.max(aps)*2),squeeze=False)
         lclist=[]
         for x in range(np.max(aps)):
-            lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x]).remove_nans().remove_outliers()
+            lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x])
             lclist.append(lc)
 
             try: axs[x,0].plot(lc.time.value,lc.flux.value)
@@ -898,8 +1085,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         if show_plots: plt.show()
         plt.close(fig)
 
+        # --- Get index of variable star's aperture ---
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
+
         if save_plots or show_plots:
+
             fig = plt.figure(figsize=(20,4))
             try: plt.plot(lclist[variableindex].time.value,lclist[variableindex].flux.value,c='k')
             except AttributeError: plt.plot(lclist[variableindex].time,lclist[variableindex].flux,c='k')
@@ -912,14 +1102,16 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             plt.close(fig)
 
         if extensionprospects:
-            '''If we have more than one target,
-               we remove the non-variables, then detect stars again.'''
+            # ------------------------------------------------------
+            # If we have more than one target,
+            # we remove the non-variables, then detect stars again.
+            # ------------------------------------------------------
 
             removethesepixels = pixelremoval(gapfilledaperturelist,variableindex)
 
             countergrid_all = countergrid_all*np.invert(removethesepixels)*1
 
-            #draw AFG after we removed non-variable targets
+            # --- Draw AFG after we removed non-variable targets ---
             if save_plots or show_plots:
                 afgdrawer(countergrid_all,targettpf+'_plots/'+targettpf+'_AFG_after_'+str(iterationnum)+'_iterations',tpf,
                             show_plots=show_plots,save_plots=save_plots)
@@ -927,14 +1119,29 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         else:
             print('Iteration finished')
 
+            # -----------------------------------------------------------------------
+            # Optimizing final aperture by checking CDPP for different aperture sizes
+            # -----------------------------------------------------------------------
+            print('Optimizing final aperture')
+            lslist = optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,gapfilledaperturelist_initial,tpf,
+                                                targettpf=targettpf,
+                                                save_plots=save_plots,
+                                                show_plots=show_plots,
+                                                debug=debug)
+
             if apply_K2SC:
+                # --------------------
                 print('Applying K2SC')
+                # --------------------
 
                 from autoeap.k2sc_stable import psearch,k2sc_lc
 
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
+                lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
+                lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
                 lclist[variableindex].__class__ = k2sc_lc
+
                 try:
                     period, fap = psearch(lclist[variableindex].time.value,lclist[variableindex].flux.value,min_p=0,max_p=lclist[variableindex].time.value.ptp()/2)
                 except AttributeError:
@@ -942,6 +1149,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 print('Proposed period for periodic kernel is %.2f' % period)
 
                 lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
+
+
+                # --- Removing outliers before saving light curve (or removing spline) ---
+                lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)
+                lclist[variableindex].corr_flux = lclist[variableindex].corr_flux[~badpts]
 
                 if save_plots or show_plots:
                     fig = plt.figure(figsize=(20,4))
@@ -955,12 +1167,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     plt.close(fig)
 
                 if remove_spline:
+                    # --- Remove spline from K2SC corrected light curve ---
                     print('Removing spline')
+
                     try:
                         splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].corr_flux,window_length=window_length)
                     except AttributeError:
                         splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].corr_flux,window_length=window_length)
+
                     if save_lc:
+                        # --- Save K2SC + spline corrected light curve ---
+
                         print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc_spline.lc')
                         table = lclist[variableindex].to_table()['time','flux','flux_err']
                         table['corr_flux'] = lclist[variableindex].corr_flux
@@ -974,12 +1191,16 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
 
                 if save_lc:
+                    # --- Save K2SC corrected light curve ---
+
                     print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc.lc')
                     table = lclist[variableindex].to_table()['time','flux','flux_err']
                     table['corr_flux'] = lclist[variableindex].corr_flux
                     ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc.lc',overwrite=True)
 
                 print('Done')
+
+
                 try:
                     return lclist[variableindex].time.value, lclist[variableindex].corr_flux, lclist[variableindex].flux_err.value
                 except AttributeError:
@@ -987,30 +1208,41 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
             break
 
+    # --- Removing outliers before saving light curve (or removing spline) ---
+    lclist[variableindex] = lclist[variableindex].remove_nans().remove_outliers()
+
     if remove_spline:
+        # --- Remove spline from raw light curve ---
         print('Removing spline')
         try:
             splinedLC, trendLC = splinecalc(lclist[variableindex].time.value, lclist[variableindex].flux.value,window_length=window_length)
         except AttributeError:
             splinedLC, trendLC = splinecalc(lclist[variableindex].time, lclist[variableindex].flux,window_length=window_length)
+
         if save_lc:
+            # --- Save spline corrected raw light curve ---
             print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_spline.lc')
+
             table = lclist[variableindex].to_table()['time','flux','flux_err']
             table['splined_flux'] = splinedLC
             ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP_spline.lc',overwrite=True)
 
         print('Done')
+
         try:
             return lclist[variableindex].time.value, splinedLC, lclist[variableindex].flux_err.value
         except AttributeError:
             return lclist[variableindex].time, splinedLC, lclist[variableindex].flux_err
 
     if save_lc:
+        # --- Save raw light curve ---
         print('Saving lc as '+targettpf+'_c'+str(campaignnum)+'_autoEAP.lc')
+
         table = lclist[variableindex].to_table()['time','flux','flux_err']
         ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP.lc',overwrite=True)
 
     print('Done')
+
     try:
         return lclist[variableindex].time.value, lclist[variableindex].flux.value, lclist[variableindex].flux_err.value
     except AttributeError:

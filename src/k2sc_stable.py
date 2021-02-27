@@ -245,7 +245,7 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
         print('Detrending time %6.3f'% (time()-tstart))
 
 
-        print(result)
+        #print(result)
         return result
 
 M_QUALITY    = 2**0
@@ -292,7 +292,7 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
     def get_k2data(self):
         try:
             try: x, y = self.pos_corr1.value, self.pos_corr2.value
-            except AttributeError: self.pos_corr1, self.pos_corr2
+            except AttributeError: x, y = self.pos_corr1, self.pos_corr2
         except:
             try: x, y = self.centroid_col.value, self.centroid_row.value
             except AttributeError: x, y = self.centroid_col, self.centroid_row

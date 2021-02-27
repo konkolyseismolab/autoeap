@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import lightkurve
 import warnings
 from astropy.units.quantity import Quantity
+from astropy.time.core import Time
 
 def strip_quantity(data):
-    if isinstance(data, Quantity):
+    if isinstance(data, Quantity) or isinstance(data, Time):
         return data.value
     else:
         return data

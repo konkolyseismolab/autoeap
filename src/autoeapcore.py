@@ -655,6 +655,9 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
                                         minimum_frequency=2/lc.time.ptp(),
                                         nyquist_factor=1)
 
+        frequency = strip_quantity(frequency)
+        power     = strip_quantity(power)
+
         sixhourspeak = 4.06998484731612
         df = 1/lc.time.ptp()
         for jj in range(5):
@@ -668,9 +671,6 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         #plt.xlim([2/lclist[q].time.ptp(), nyquist/2])
         axs[ii,0].set_ylim(bottom=0)
         axs[ii,0].legend()
-
-        frequency = strip_quantity(frequency)
-        power     = strip_quantity(power)
 
         # Period must be shorten than half of data length
         power     = power[    2/lc.time.ptp() < frequency]

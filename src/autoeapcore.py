@@ -673,8 +673,8 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         axs[ii,0].legend()
 
         # Period must be shorten than half of data length
-        power     = power[    2/lc.time.ptp() < frequency]
-        frequency = frequency[2/lc.time.ptp() < frequency]
+        power     = power[    2/strip_quantity(lc.time).ptp() < frequency]
+        frequency = frequency[2/strip_quantity(lc.time).ptp() < frequency]
 
         winsorize = power<np.nanpercentile(power,95)
 

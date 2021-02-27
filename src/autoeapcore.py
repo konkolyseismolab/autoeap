@@ -920,7 +920,7 @@ def splinecalc(time,flux,window_length=20):
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None, TH=8,
                         show_plots=False, save_plots=False, window_length=20,
-                        debug=False):
+                        debug=False,**kwargs):
     """
     ``createlightcurve`` performs photomerty on K2 variable stars
 
@@ -953,6 +953,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     window_length: int of float, default: 20
         The length of filter window for spline correction given in days. Applies only
         if ``remove_spline`` is `True`.
+    **kwargs: all other keyword arguments are passed to K2SC.
     Returns
     -------
     time : array-like
@@ -1132,7 +1133,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                         max_p=strip_quantity(lclist[variableindex].time).ptp()/2)
                 print('Proposed period for periodic kernel is %.2f' % period)
 
-                lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period)
+                lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period,**kwargs)
 
 
                 # --- Removing outliers before saving light curve (or removing spline) ---

@@ -335,17 +335,26 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         print('Local TPF not found, trying to download TPF instead')
         result = lightkurve.search_targetpixelfile(inputfile,campaign=campaign)
         if len(result)>1:
-            warnings.warn('The target has been observed in the following campaigns: '+\
-            str(result.table['observation'].tolist())+\
-            '. Only the first file has been downloaded. Please specify campaign (campaign=<number>) to limit your search.',
-            LightkurveWarning)
+            try:
+                warnings.warn('The target has been observed in the following campaigns: '+\
+                str(result.table['observation'].tolist())+\
+                '. Only the first file has been downloaded. Please specify campaign (campaign=<number>) to limit your search.',
+                LightkurveWarning)
+            except KeyError:
+                warnings.warn('The target has been observed in the following campaigns: '+\
+                str(result.table['mission'].tolist())+\
+                '. Only the first file has been downloaded. Please specify campaign (campaign=<number>) to limit your search.',
+                LightkurveWarning)
 
             tpf = result[0].download()
         else:
             if len(result) == 0:
                 raise FileNotFoundError('Empty search result. No target has been found in the given campaign!')
             tpf = result.download()
-            print('TPF found on MAST: '+result.table['observation'].tolist()[0] )
+            try:
+                print('TPF found on MAST: '+result.table['observation'].tolist()[0] )
+            except KeyError:
+                print('TPF found on MAST: '+result.table['mission'].tolist()[0] )
 
     # --- Add underscores to output filenames ---
     inputfile = inputfile.replace(' ','_')

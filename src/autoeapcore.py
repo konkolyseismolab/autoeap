@@ -424,7 +424,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
-        mask_saturated[tpfdata>190000] = 1
+        mask_saturated[strip_quantity(tpfdata)>190000] = 1
         # Do not mask middle region as it may contain a bright target
         mask_saturated[ 2:tpf.flux.shape[1]-2  , 2:tpf.flux.shape[2]-2  ] = 0
         tpfdata[   mask_saturated==1 ] = 0

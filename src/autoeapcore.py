@@ -836,7 +836,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             axs[0].set_ylabel('Flux')
             axs[0].set_title('The lc which is identified as a variable')
 
-            taxs[1].plot( strip_quantity(newlc.time) ,strip_quantity(newlc.flux) ,c='k')
+            axs[1].plot( strip_quantity(newlc.time) ,strip_quantity(newlc.flux) ,c='k')
             axs[1].set_xlabel('Time')
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The lc after aperture size optimization')

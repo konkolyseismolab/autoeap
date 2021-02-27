@@ -301,6 +301,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     for x in range(len(filtered)):
         plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=12)
         plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='w',linewidth=6)
+    plt.tight_layout()
     if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_single_tpf_cadencenum_'+str(cadence)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
@@ -414,6 +415,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=5,c='r')
         ax2.set_xlabel('PSF CENTR2',fontsize=14)
         ax2.set_ylabel('BJD',fontsize=14)
+        plt.tight_layout()
         if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png')
         if show_plots: plt.show()
         plt.close(fig)
@@ -1049,6 +1051,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 for x in range(len(filtered)):
                     plt.plot(filtered[x][0],filtered[x][1],c=color,linewidth=4)
 
+            plt.tight_layout()
             if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_iternum_'+str(iterationnum)+'.png')
             if show_plots: plt.show()
             plt.close(fig)
@@ -1146,6 +1149,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     plt.title('K2SC corrected lc for '+targettpf)
                     plt.xlabel('Time')
                     plt.ylabel('Flux')
+                    plt.tight_layout()
                     if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_k2sc_lc_plot.png')
                     if show_plots: plt.show()
                     plt.close(fig)

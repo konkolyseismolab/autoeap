@@ -22,7 +22,9 @@ Then, after starting Python, you can do:
 
 ```python
 yourtpf = '/path/to/your/tpf/ktwo212466080-c17_lpd-targ.fits'
+
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf)
 ```
 
@@ -30,6 +32,7 @@ Or if you want to let autoEAP download the TPF from MAST database, you can just 
 
 ```python
 import autoeap
+
 targetID = 'EPIC 212466080'
 campaign = 17
 time, flux, flux_err = autoeap.createlightcurve(targetID,campaign=campaign)
@@ -40,6 +43,7 @@ time, flux, flux_err = autoeap.createlightcurve(targetID,campaign=campaign)
 Plotting our results gives:
 ```python
 import matplotlib.pyplot as plt
+
 plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 plt.show()
@@ -62,12 +66,14 @@ python setup.py install --user
 And then without much hassle, you can use in python:
 ```python
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True)
 ```
 
 The result is quite delightful:
 ```python
 import matplotlib.pyplot as plt
+
 plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 plt.show()
@@ -78,12 +84,14 @@ plt.show()
 We have also built-in a method to remove trends using low-order splines. Just do to correct the raw light curve:
 ```python
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,remove_spline=True)
 ```
 
 Or do this to remove a spline from the K2SC light curve:
 ```python
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_spline=True)
 ```
 

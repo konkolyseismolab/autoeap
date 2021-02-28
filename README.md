@@ -102,6 +102,17 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
   - `ROI_upper` The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Do not change this value unless you are aware of what you are doing! Default is `0.85`.
 - `**kwargs` Dictionary of arguments to be passed to ``k2sc.detrend``.
 
+## Command-line tools
+After installation, ``autoEAP`` will be available from the command line:
+
+ - ``autoEAP <EPIC number or TPF path> [options]``
+
+ Listed below are the usage instructions:
+
+```bash
+$ autoEAP --help
+```
+
 ## Data Access
 
 We provide photometry for targets for the following Guest Observation Programs:

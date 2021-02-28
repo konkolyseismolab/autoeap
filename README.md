@@ -45,7 +45,9 @@ Plotting our results gives:
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(10,5))
-plt.scatter(time,flux,marker='+',c='r')
+plt.plot(time,flux,'.')
+plt.xlabel('KBJD')
+plt.ylabel('Flux')
 plt.show()
 ```
 ![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_raw.jpg)
@@ -75,7 +77,9 @@ The result is quite delightful:
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(10,5))
-plt.scatter(time,flux,marker='+',c='r')
+plt.plot(time,flux,'.')
+plt.xlabel('KBJD')
+plt.ylabel('Flux')
 plt.show()
 ```
 ![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.jpg)
@@ -161,7 +165,7 @@ Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://kep
 The data we have already created have been uploaded to our [webpage](https://konkoly.hu/KIK/data_en.html).
 
 ## Contributing
-Feel free to open PR / Issue, or contact me [here](https://twitter.com/palszab) or [here](ps738@cam.ac.uk).
+Feel free to open PR / Issue, or contact us [here](bodi.attila@csfk.org) or [here](ps738@cam.ac.uk).
 
 ## Citing
 If you find this code useful, please cite [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract), until the new paper is not ready. Here is the BibTeX source:
@@ -187,4 +191,4 @@ archivePrefix = {arXiv},
 ```
 
 ## Acknowledgements
-This project was made possible by the funding provided by the National Research, Development and Innovation Office of Hungary, funding granted under project 2018-2.1.7-UK_GYAK-2019-00009 and by the Lendület Program of the Hungarian Academy of Sciences, project No LP2018-7/2019.
+This project was made possible by the funding provided by the National Research, Development and Innovation Office of Hungary, funding granted under project 2018-2.1.7-UK_GYAK-2019-00009 and by the Lendület Program of the Hungarian Academy of Sciences, project No LP2018-7.

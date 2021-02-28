@@ -894,14 +894,14 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     if show_plots: plt.show()
     plt.close(fig)
 
-def splinecalc(time,flux,window_length=20):
+def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
     from wotan import flatten,slide_clip
     from numpy import nanmean
 
     clipped_flux = slide_clip(time,flux,
         window_length=window_length,
-        low=3,
-        high=3,
+        low=sigma_lower,
+        high=sigma_upper,
         method='mad',
         center='median'
         )
@@ -921,8 +921,9 @@ def splinecalc(time,flux,window_length=20):
 
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None, TH=8,
-                        show_plots=False, save_plots=False, window_length=20,
-                        debug=False,**kwargs):
+                        show_plots=False, save_plots=False,
+                        window_length=20, sigma_lower=3, sigma_upper=3,
+                        debug=False, **kwargs):
     """
     ``createlightcurve`` performs photomerty on K2 variable stars
 
@@ -930,39 +931,50 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     ----------
     targettpf : string
         The location of the local TPF file  on which the photometry will
-        be performed. If not found, TPF will be downladed from MAST, but
+        be performed. If not found TPF will be downladed from MAST, but
         ``campaign`` must be defined.
     apply_K2SC : bool, default: False
-        If `True`, after the raw photomery, K2SC will be applied to remove
+        If `True` after the raw photomery, K2SC will be applied to remove
         systematics from the extracted light curve.
     remove_spline : bool, default: False
-        If `True`, after the raw photomery, a low-order spline will be fitted
+        If `True` after the raw photomery, a low-order spline will be fitted
         and removed from the extracted light curve. If ``apply_K2SC`` is
         also `True`, then this step will be done after the K2SC.
     save_lc: bool, default: False
-        If `True`, the final light curve will be save as a file.
+        If `True` the final light curve will be save as a file.
     campaign : int, default: None
         If local TPF file is not found, it will be downloaded from MAST, but
         ``campaign`` number should be defined as well, if the target has been
         observed in more than one campaign.
+    show_plots: bool, default: False
+        If `True` all the plots will be displayed.
+    save_plots: bool, default: False
+        If `True` all the plots will be saved to a subdirectory.
+    window_length: int of float, default: 20
+        The length of filter window for spline correction given in days. Applies
+        only if ``remove_spline`` is `True`.
+    sigma_lower: int of float, default: 3
+        The number of standard deviations to use as the lower bound for sigma
+        clipping limit before spline correction. Applies only
+        if ``remove_spline`` is `True`.
+    sigma_upper: int of float, default: 3
+        The number of standard deviations to use as the upper bound for sigma
+        clipping limit before spline correction. Applies only
+        if ``remove_spline`` is `True`.
+    **kwargs: dict
+        Dictionary of arguments to be passed to k2sc.detrend.
     TH : int of float, default: 8
         Threshold to segment each target in each TPF candence. Only used if
-        targets cannot be separated normally.
-    show_plots: bool, default: False
-        If `True`, all the plots will be displayed.
-    save_plots: bool, default: False
-        If `True`, all the plots will be saved to a subdirectory.
-    window_length: int of float, default: 20
-        The length of filter window for spline correction given in days. Applies only
-        if ``remove_spline`` is `True`.
-    **kwargs: all other keyword arguments are passed to K2SC.
+        targets cannot be separated normally. Do not change this value unless
+        you are aware of what you are doing.
     Returns
     -------
     time : array-like
         Time values
     flux : array-like
         Raw flux values or K2SC corrected flux values, if ``apply_K2SC``
-        is `True`.
+        is `True` or spline removed raw/K2SC flux values, if ``remove_spline``
+        is `True`
     flux_err : array-like
         Flux error values
     """
@@ -1160,7 +1172,9 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                     splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time),
                                                         strip_quantity(lclist[variableindex].corr_flux),
-                                                        window_length=window_length)
+                                                        window_length=window_length,
+                                                        sigma_lower=sigma_lower,
+                                                        sigma_upper=sigma_upper)
 
                     if save_lc:
                         # --- Save K2SC + spline corrected light curve ---
@@ -1194,7 +1208,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     if remove_spline:
         # --- Remove spline from raw light curve ---
         print('Removing spline')
-        splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux) ,window_length=window_length)
+        splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux) ,
+                                        window_length=window_length,
+                                        sigma_lower=sigma_lower,
+                                        sigma_upper=sigma_upper)
 
         if save_lc:
             # --- Save spline corrected raw light curve ---

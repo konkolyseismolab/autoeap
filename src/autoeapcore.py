@@ -920,9 +920,10 @@ def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
     return splinedLC, trendLC
 
 
-def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None, TH=8,
+def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
                         window_length=20, sigma_lower=3, sigma_upper=3,
+                        TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
     """
     ``createlightcurve`` performs photomerty on K2 variable stars
@@ -950,23 +951,34 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         If `True` all the plots will be displayed.
     save_plots: bool, default: False
         If `True` all the plots will be saved to a subdirectory.
-    window_length: int of float, default: 20
+    window_length: int or float, default: 20
         The length of filter window for spline correction given in days. Applies
         only if ``remove_spline`` is `True`.
-    sigma_lower: int of float, default: 3
+    sigma_lower: int or float, default: 3
         The number of standard deviations to use as the lower bound for sigma
         clipping limit before spline correction. Applies only
         if ``remove_spline`` is `True`.
-    sigma_upper: int of float, default: 3
+    sigma_upper: int or float, default: 3
         The number of standard deviations to use as the upper bound for sigma
         clipping limit before spline correction. Applies only
         if ``remove_spline`` is `True`.
-    **kwargs: dict
-        Dictionary of arguments to be passed to k2sc.detrend.
-    TH : int of float, default: 8
+    TH : int or float, default: 8
         Threshold to segment each target in each TPF candence. Only used if
         targets cannot be separated normally. Do not change this value unless
         you are aware of what you are doing.
+    ROI_lower: int, default: 100
+        The aperture frequency grid range of interest threshold given in
+        absolute number of selections above which pixels are considered to
+        define the apertures.  Do not change this value unless you are
+        aware of what you are doing.
+    ROI_upper: float, default: 0.85
+        The aperture frequency grid range of interest threshold given in
+        relative number of selections w.r.t. the number of all cadences below
+        which pixels are considered to define the apertures. Do not change
+        this value unless you are aware of what you are doing.
+    **kwargs: dict
+        Dictionary of arguments to be passed to k2sc.detrend.
+
     Returns
     -------
     time : array-like
@@ -1016,7 +1028,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             numfeatureslist.append(num_features)
 
         # --- Separate stars and define one aperture for each star ---
-        ROI=[100, len(tpf.flux)*0.85]
+        ROI=[ROI_lower, len(tpf.flux)*ROI_upper]
         apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
 
         if save_plots or show_plots:

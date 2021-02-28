@@ -9,6 +9,7 @@ import lightkurve
 import warnings
 from astropy.units.quantity import Quantity
 from astropy.time.core import Time
+import argparse
 
 def strip_quantity(data):
     if isinstance(data, Quantity) or isinstance(data, Time):
@@ -919,6 +920,9 @@ def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
 
     return splinedLC, trendLC
 
+################
+# Main function
+################
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
@@ -926,13 +930,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
     """
-    ``createlightcurve`` performs photomerty on K2 variable stars
+    ``createlightcurve`` performs photometry on K2 variable stars
 
     Parameters
     ----------
     targettpf : string
         The location of the local TPF file  on which the photometry will
-        be performed. If not found TPF will be downladed from MAST, but
+        be performed. If not found TPF will be downloaded from MAST, but
         ``campaign`` must be defined.
     apply_K2SC : bool, default: False
         If `True` after the raw photomery, K2SC will be applied to remove
@@ -1247,3 +1251,84 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     print('Done')
 
     return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux), strip_quantity(lclist[variableindex].flux_err)
+
+
+#########################
+# Command-line interfaces
+#########################
+
+def autoeap_from_commandline(args=None):
+    """Use autoeap from command-line."""
+    parser = argparse.ArgumentParser(
+                description="Perform autoEAP photometry on K2 variable stars.",
+                formatter_class=RawTextHelpFormatter)
+
+    parser.add_argument('targettpf',
+                           metavar='<targettpf-or-EPIC-number>',
+                           type=str,
+                           help="The location of the local TPF file or "
+                                "an EPIC number to be downloaded from MAST.\n")
+    parser.add_argument('--campaign',
+                           metavar='campaignnumber', type=int, default=None,
+                           help='If the target has been observed in more than one '
+                                'campaign, download this light curve. If not given, '
+                                'the first campaign will be downloaded.')
+    parser.add_argument('--K2SC',
+                           action='store_true',
+                           help='After the raw photomery, apply K2SC to remove '
+                                'systematics from the extracted light curve.')
+    parser.add_argument('--spline',
+                           action='store_true',
+                           help='After the raw or K2SC photomery, remove a '
+                                'low-order spline from the extracted light curve.')
+    parser.add_argument('--windowlength',
+                           metavar='windowlength', type=float, default=20,
+                           help='The length of filter window for spline correction '
+                                'given in days. Default is 20 days.')
+    parser.add_argument('--sigmalower',
+                           metavar='sigmalower', type=float, default=3,
+                           help='The number of standard deviations to use '
+                                'as the lower bound for sigma clipping limit '
+                                'before spline correction. Default is 3.')
+    parser.add_argument('--sigmaupper',
+                           metavar='sigmaupper', type=float, default=3,
+                           help='The number of standard deviations to use '
+                                'as the upper bound for sigma clipping limit '
+                                'before spline correction. Default is 3.')
+    parser.add_argument('--saveplots',
+                           action='store_true',
+                           help='Save all the plots that show each step '
+                                'into a subdirectory.')
+    parser.add_argument('--TH',
+                           metavar='TH', type=float, default=8,
+                           help='Threshold to segment each target in each TPF '
+                                'candence. Only used if targets cannot be '
+                                'separated normally. Default is 8.')
+    parser.add_argument('--ROIlower',
+                           metavar='ROIlower', type=int, default=100,
+                           help='The aperture frequency grid range of interest '
+                                'threshold given in absolute number of selections '
+                                'above which pixels are considered to define '
+                                'the apertures. Default is 100.')
+    parser.add_argument('--ROIupper',
+                           metavar='ROIupper', type=float, default=0.85,
+                           help='The aperture frequency grid range of interest '
+                                'threshold given in relative number of selections '
+                                'w.r.t. the number of all cadences below which pixels '
+                                'are considered to define the apertures. '
+                                'Default is 0.85.')
+
+    args = parser.parse_args(args)
+
+    _ = createlightcurve(args.targettpf,
+                    apply_K2SC=args.K2SC,
+                    remove_spline=args.spline,
+                    save_lc=True,
+                    campaign=args.campaign,
+                    save_plots=args.saveplots,
+                    window_length=args.windowlength,
+                    sigma_lower=args.sigmalower,
+                    sigma_upper=args.sigmaupper,
+                    TH=args.TH,
+                    ROI_lower=args.ROIlower,
+                    ROI_upper=args.ROIupper)

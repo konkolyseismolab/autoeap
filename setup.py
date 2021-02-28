@@ -19,6 +19,11 @@ try:
 except:
     long_description = ' '
 
+# Command-line tools
+entry_points = {'console_scripts': [
+    'autoeap = autoeap:autoeap_from_commandline'
+]}
+
 desc='Automated version of Extended Aperture Photometry developed for K2 RR Lyrae stars.'
 
 setup(name='autoeap',
@@ -31,5 +36,6 @@ setup(name='autoeap',
       url='https://github.com/zabop/autoeap/',
       package_dir={'autoeap':'src'},
       packages=['autoeap'],
-      install_requires=requirements
+      install_requires=requirements,
+      entry_points=entry_points
      )

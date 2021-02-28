@@ -22,7 +22,9 @@ Then, after starting Python, you can do:
 
 ```python
 yourtpf = '/path/to/your/tpf/ktwo212466080-c17_lpd-targ.fits'
+
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf)
 ```
 
@@ -30,6 +32,7 @@ Or if you want to let autoEAP download the TPF from MAST database, you can just 
 
 ```python
 import autoeap
+
 targetID = 'EPIC 212466080'
 campaign = 17
 time, flux, flux_err = autoeap.createlightcurve(targetID,campaign=campaign)
@@ -40,6 +43,7 @@ time, flux, flux_err = autoeap.createlightcurve(targetID,campaign=campaign)
 Plotting our results gives:
 ```python
 import matplotlib.pyplot as plt
+
 plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 plt.show()
@@ -62,12 +66,14 @@ python setup.py install --user
 And then without much hassle, you can use in python:
 ```python
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True)
 ```
 
 The result is quite delightful:
 ```python
 import matplotlib.pyplot as plt
+
 plt.figure(figsize=(10,5))
 plt.scatter(time,flux,marker='+',c='r')
 plt.show()
@@ -78,12 +84,14 @@ plt.show()
 We have also built-in a method to remove trends using low-order splines. Just do to correct the raw light curve:
 ```python
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,remove_spline=True)
 ```
 
 Or do this to remove a spline from the K2SC light curve:
 ```python
 import autoeap
+
 time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_spline=True)
 ```
 
@@ -101,6 +109,47 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
   - `ROI_lower` The aperture frequency grid range of interest threshold given in absolute number of selections above which pixels are considered to define the apertures.  Do not change this value unless you are aware of what you are doing! Default is `100`.
   - `ROI_upper` The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Do not change this value unless you are aware of what you are doing! Default is `0.85`.
 - `**kwargs` Dictionary of arguments to be passed to ``k2sc.detrend``.
+
+## Command-line tools
+After installation, ``autoEAP`` will be available from the command line:
+
+ - ``autoEAP <EPIC number or TPF path> [options]``
+
+ Listed below are the usage instructions:
+
+```bash
+$ autoeap --help
+
+usage: autoeap [-h] [--campaign <campaign-number>] [--applyK2SC] [--removespline] [--windowlength <window-length-in-days>] [--sigmalower <sigma-lower>] [--sigmaupper <sigma-upper>] [--saveplots]
+               [--TH <threshold-value>] [--ROIlower <lower-ROI-value>] [--ROIupper <upper-ROI-value>]
+               <path-to-targettpf-or-EPIC-number>
+
+Perform autoEAP photometry on K2 variable stars.
+
+positional arguments:
+  <path-to-targettpf-or-EPIC-number>
+                        The location of the local TPF file or an EPIC number to be downloaded from MAST. Valid inputs include: The name of the object as a string, e.g. 'ktwo251812081'. The EPIC identifier as an integer, e.g. 251812081.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --campaign <campaign-number>
+                        If the target has been observed in more than one campaign, download this light curve. If not given, the first campaign will be downloaded.
+  --applyK2SC           After the raw photomery, apply K2SC to remove systematics from the extracted light curve.
+  --removespline        After the raw or K2SC photomery, remove a low-order spline from the extracted light curve.
+  --windowlength <window-length-in-days>
+                        The length of filter window for spline correction given in days. Default is 20 days.
+  --sigmalower <sigma-lower>
+                        The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Default is 3.
+  --sigmaupper <sigma-upper>
+                        The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Default is 3.
+  --saveplots           Save all the plots that show each step into a subdirectory.
+  --TH <threshold-value>
+                        Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is 8.
+  --ROIlower <lower-ROI-value>
+                        The aperture frequency grid range of interest threshold given in absolute number of selections above which pixels are considered to define the apertures. Default is 100.
+  --ROIupper <upper-ROI-value>
+                        The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Default is 0.85.
+```
 
 ## Data Access
 

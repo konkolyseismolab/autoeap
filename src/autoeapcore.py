@@ -9,6 +9,7 @@ import lightkurve
 import warnings
 from astropy.units.quantity import Quantity
 from astropy.time.core import Time
+import argparse
 
 def strip_quantity(data):
     if isinstance(data, Quantity) or isinstance(data, Time):
@@ -47,7 +48,10 @@ def get_gaia(tpf, magnitude_limit=18):
         raise no_targets_found_message
     radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
     coords = tpf.wcs.all_world2pix(radecs, 1) ## TODO, is origin supposed to be zero or one?
-    year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
+    if isinstance(tpf.time, Time):
+        year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
+    else:
+        year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
     pmra = ((np.nan_to_num(np.asarray(result.pmRA)) * u.milliarcsecond/u.year) * year).to(u.deg).value
     pmdec = ((np.nan_to_num(np.asarray(result.pmDE)) * u.milliarcsecond/u.year) * year).to(u.deg).value
     result.RA_ICRS += pmra
@@ -311,24 +315,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     """Loop over each image and detect stars for each of them separatly"""
     import os
 
-    def isnotebook():
-        try:
-            shell = get_ipython().__class__.__name__
-            if shell == 'ZMQInteractiveShell':
-                return True   # Jupyter notebook or qtconsole
-            elif shell == 'TerminalInteractiveShell':
-                return False  # Terminal running IPython
-            else:
-                return False  # Other type (?)
-        except NameError:
-            return False      # Probably standard Python interpreter
-
     from sklearn.cluster import DBSCAN
     import matplotlib.gridspec as gridspec
     from lightkurve.utils import LightkurveWarning
     import os
-    if isnotebook(): from tqdm.notebook import tqdm
-    else: from tqdm import tqdm
+    from tqdm import tqdm
 
     import autoeap.photutils_stable as photutils
 
@@ -426,7 +417,8 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
-        mask_saturated[strip_quantity(tpfdata)>190000] = 1
+        with warnings.catch_warnings(record=True) as w:
+            mask_saturated[strip_quantity(tpfdata)>190000] = 1
         # Do not mask middle region as it may contain a bright target
         mask_saturated[ 2:tpf.flux.shape[1]-2  , 2:tpf.flux.shape[2]-2  ] = 0
         tpfdata[   mask_saturated==1 ] = 0
@@ -674,11 +666,13 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         axs[ii,0].set_ylim(bottom=0)
         axs[ii,0].legend()
 
-        # Period must be shorten than half of data length
-        power     = power[    2/strip_quantity(lc.time).ptp() < frequency]
-        frequency = frequency[2/strip_quantity(lc.time).ptp() < frequency]
+        with warnings.catch_warnings(record=True) as w:
 
-        winsorize = power<np.nanpercentile(power,95)
+            # Period must be shorten than half of data length
+            power     = power[    2/strip_quantity(lc.time).ptp() < frequency]
+            frequency = frequency[2/strip_quantity(lc.time).ptp() < frequency]
+
+            winsorize = power<np.nanpercentile(power,95)
 
         max_over_mean.append(np.nanmax(power)/np.nanmean(power[winsorize]))
         max_powers.append(np.nanmax(power))
@@ -764,7 +758,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         lccdpp = newlc.estimate_cdpp()
         if debug: print('New CDPP =', lccdpp )
 
-        cdpp_list.append(lccdpp)
+        cdpp_list.append( strip_quantity(lccdpp) )
 
         if show_plots:
             fig,axs = plt.subplots(2,1,figsize=(20,8))
@@ -919,6 +913,9 @@ def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
 
     return splinedLC, trendLC
 
+################
+# Main function
+################
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
@@ -926,14 +923,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
     """
-    ``createlightcurve`` performs photomerty on K2 variable stars
+    ``createlightcurve`` performs photometry on K2 variable stars
 
     Parameters
     ----------
-    targettpf : string
-        The location of the local TPF file  on which the photometry will
-        be performed. If not found TPF will be downladed from MAST, but
-        ``campaign`` must be defined.
+    targettpf : string or int
+        The location of the local TPF file on which the photometry will
+        be performed or an EPIC number to be downloaded from MAST, which
+        case the ``campaign`` might be defined.
+        Valid inputs include:
+        - The name of the object as a string, e.g. 'ktwo251812081'.
+        - The EPIC identifier as an integer, e.g. 251812081.
     apply_K2SC : bool, default: False
         If `True` after the raw photomery, K2SC will be applied to remove
         systematics from the extracted light curve.
@@ -991,6 +991,18 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         Flux error values
     """
 
+    if apply_K2SC:
+        try:
+            from k2sc.k2io import DataReader
+            del DataReader
+        except ModuleNotFoundError:
+            print('No module named k2sc')
+            print('However you can install it via:\n')
+            print('git clone https://github.com/OxES/k2sc.git')
+            print('cd k2sc')
+            print('python setup.py install --user')
+            exit(-1)
+
     import scipy.ndimage.measurements as snm
     import os
     from astropy.io import ascii
@@ -1039,7 +1051,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         # --- Query Gaia catalog to separate close sources ---
         try: gaia = get_gaia(tpf,magnitude_limit=21)
-        except: gaia = None
+        except:
+            print('Gaia database is not available!')
+            print('Separating sources using only photometry might yield worse results than expected')
+            gaia = None
 
         if gaia is not None:
             print('Using Gaia to separate sources')
@@ -1247,3 +1262,87 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     print('Done')
 
     return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux), strip_quantity(lclist[variableindex].flux_err)
+
+
+#########################
+# Command-line interfaces
+#########################
+
+def autoeap_from_commandline(args=None):
+    """Use autoeap from command-line."""
+    parser = argparse.ArgumentParser(
+                description="Perform autoEAP photometry on K2 variable stars.",
+                formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('targettpf',
+                           metavar='<path-to-targettpf-or-EPIC-number>',
+                           type=str,
+                           help="The location of the local TPF file or "
+                                "an EPIC number to be downloaded from MAST. "
+                                "Valid inputs include: "
+                                "The name of the object as a string, e.g. 'ktwo251812081'. "
+                                "The EPIC identifier as an integer, e.g. 251812081.")
+    parser.add_argument('--campaign',
+                           metavar='<campaign-number>', type=int, default=None,
+                           help='If the target has been observed in more than one '
+                                'campaign, download this light curve. If not given, '
+                                'the first campaign will be downloaded.')
+    parser.add_argument('--applyK2SC',
+                           action='store_true',
+                           help='After the raw photomery, apply K2SC to remove '
+                                'systematics from the extracted light curve.')
+    parser.add_argument('--removespline',
+                           action='store_true',
+                           help='After the raw or K2SC photomery, remove a '
+                                'low-order spline from the extracted light curve.')
+    parser.add_argument('--windowlength',
+                           metavar='<window-length-in-days>', type=float, default=20,
+                           help='The length of filter window for spline correction '
+                                'given in days. Default is 20 days.')
+    parser.add_argument('--sigmalower',
+                           metavar='<sigma-lower>', type=float, default=3,
+                           help='The number of standard deviations to use '
+                                'as the lower bound for sigma clipping limit '
+                                'before spline correction. Default is 3.')
+    parser.add_argument('--sigmaupper',
+                           metavar='<sigma-upper>', type=float, default=3,
+                           help='The number of standard deviations to use '
+                                'as the upper bound for sigma clipping limit '
+                                'before spline correction. Default is 3.')
+    parser.add_argument('--saveplots',
+                           action='store_true',
+                           help='Save all the plots that show each step '
+                                'into a subdirectory.')
+    parser.add_argument('--TH',
+                           metavar='<threshold-value>', type=float, default=8,
+                           help='Threshold to segment each target in each TPF '
+                                'candence. Only used if targets cannot be '
+                                'separated normally. Default is 8.')
+    parser.add_argument('--ROIlower',
+                           metavar='<lower-ROI-value>', type=int, default=100,
+                           help='The aperture frequency grid range of interest '
+                                'threshold given in absolute number of selections '
+                                'above which pixels are considered to define '
+                                'the apertures. Default is 100.')
+    parser.add_argument('--ROIupper',
+                           metavar='<upper-ROI-value>', type=float, default=0.85,
+                           help='The aperture frequency grid range of interest '
+                                'threshold given in relative number of selections '
+                                'w.r.t. the number of all cadences below which pixels '
+                                'are considered to define the apertures. '
+                                'Default is 0.85.')
+
+    args = parser.parse_args(args)
+
+    _ = createlightcurve(args.targettpf,
+                    apply_K2SC=args.applyK2SC,
+                    remove_spline=args.removespline,
+                    save_lc=True,
+                    campaign=args.campaign,
+                    save_plots=args.saveplots,
+                    window_length=args.windowlength,
+                    sigma_lower=args.sigmalower,
+                    sigma_upper=args.sigmaupper,
+                    TH=args.TH,
+                    ROI_lower=args.ROIlower,
+                    ROI_upper=args.ROIupper)

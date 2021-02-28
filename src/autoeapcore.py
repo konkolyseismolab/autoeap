@@ -1336,8 +1336,8 @@ def autoeap_from_commandline(args=None):
     args = parser.parse_args(args)
 
     _ = createlightcurve(args.targettpf,
-                    apply_K2SC=args.K2SC,
-                    remove_spline=args.spline,
+                    apply_K2SC=args.applyK2SC,
+                    remove_spline=args.removespline,
                     save_lc=True,
                     campaign=args.campaign,
                     save_plots=args.saveplots,

@@ -940,10 +940,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     Parameters
     ----------
-    targettpf : string
-        The location of the local TPF file  on which the photometry will
-        be performed. If not found TPF will be downloaded from MAST, but
-        ``campaign`` must be defined.
+    targettpf : string or int
+        The location of the local TPF file on which the photometry will
+        be performed or an EPIC number to be downloaded from MAST, which
+        case the ``campaign`` might be defined.
+        Valid inputs include:
+        - The name of the object as a string, e.g. 'ktwo251812081'.
+        - The EPIC identifier as an integer, e.g. 251812081.
     apply_K2SC : bool, default: False
         If `True` after the raw photomery, K2SC will be applied to remove
         systematics from the extracted light curve.
@@ -1276,7 +1279,10 @@ def autoeap_from_commandline(args=None):
                            metavar='<path-to-targettpf-or-EPIC-number>',
                            type=str,
                            help="The location of the local TPF file or "
-                                "an EPIC number to be downloaded from MAST.\n")
+                                "an EPIC number to be downloaded from MAST. "
+                                "Valid inputs include: "
+                                "The name of the object as a string, e.g. 'ktwo251812081'. "
+                                "The EPIC identifier as an integer, e.g. 251812081.")
     parser.add_argument('--campaign',
                            metavar='<campaign-number>', type=int, default=None,
                            help='If the target has been observed in more than one '

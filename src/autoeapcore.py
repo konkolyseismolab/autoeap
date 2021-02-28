@@ -427,7 +427,8 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
-        mask_saturated[strip_quantity(tpfdata)>190000] = 1
+        with warnings.catch_warnings(record=True) as w:
+            mask_saturated[strip_quantity(tpfdata)>190000] = 1
         # Do not mask middle region as it may contain a bright target
         mask_saturated[ 2:tpf.flux.shape[1]-2  , 2:tpf.flux.shape[2]-2  ] = 0
         tpfdata[   mask_saturated==1 ] = 0
@@ -675,11 +676,13 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         axs[ii,0].set_ylim(bottom=0)
         axs[ii,0].legend()
 
-        # Period must be shorten than half of data length
-        power     = power[    2/strip_quantity(lc.time).ptp() < frequency]
-        frequency = frequency[2/strip_quantity(lc.time).ptp() < frequency]
+        with warnings.catch_warnings(record=True) as w:
 
-        winsorize = power<np.nanpercentile(power,95)
+            # Period must be shorten than half of data length
+            power     = power[    2/strip_quantity(lc.time).ptp() < frequency]
+            frequency = frequency[2/strip_quantity(lc.time).ptp() < frequency]
+
+            winsorize = power<np.nanpercentile(power,95)
 
         max_over_mean.append(np.nanmax(power)/np.nanmean(power[winsorize]))
         max_powers.append(np.nanmax(power))

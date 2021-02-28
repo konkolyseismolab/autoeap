@@ -1046,7 +1046,10 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         # --- Query Gaia catalog to separate close sources ---
         try: gaia = get_gaia(tpf,magnitude_limit=21)
-        except: gaia = None
+        except:
+            print('Gaia database is not available!')
+            print('Separating sources using only photometry might yield worse results than expected')
+            gaia = None
 
         if gaia is not None:
             print('Using Gaia to separate sources')

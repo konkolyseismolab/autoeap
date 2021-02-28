@@ -1273,34 +1273,34 @@ def autoeap_from_commandline(args=None):
                 formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('targettpf',
-                           metavar='<targettpf-or-EPIC-number>',
+                           metavar='<path-to-targettpf-or-EPIC-number>',
                            type=str,
                            help="The location of the local TPF file or "
                                 "an EPIC number to be downloaded from MAST.\n")
     parser.add_argument('--campaign',
-                           metavar='campaignnumber', type=int, default=None,
+                           metavar='<campaign-number>', type=int, default=None,
                            help='If the target has been observed in more than one '
                                 'campaign, download this light curve. If not given, '
                                 'the first campaign will be downloaded.')
-    parser.add_argument('--K2SC',
+    parser.add_argument('--applyK2SC',
                            action='store_true',
                            help='After the raw photomery, apply K2SC to remove '
                                 'systematics from the extracted light curve.')
-    parser.add_argument('--spline',
+    parser.add_argument('--removespline',
                            action='store_true',
                            help='After the raw or K2SC photomery, remove a '
                                 'low-order spline from the extracted light curve.')
     parser.add_argument('--windowlength',
-                           metavar='windowlength', type=float, default=20,
+                           metavar='<window-length-in-days>', type=float, default=20,
                            help='The length of filter window for spline correction '
                                 'given in days. Default is 20 days.')
     parser.add_argument('--sigmalower',
-                           metavar='sigmalower', type=float, default=3,
+                           metavar='<sigma-lower>', type=float, default=3,
                            help='The number of standard deviations to use '
                                 'as the lower bound for sigma clipping limit '
                                 'before spline correction. Default is 3.')
     parser.add_argument('--sigmaupper',
-                           metavar='sigmaupper', type=float, default=3,
+                           metavar='<sigma-upper>', type=float, default=3,
                            help='The number of standard deviations to use '
                                 'as the upper bound for sigma clipping limit '
                                 'before spline correction. Default is 3.')
@@ -1309,18 +1309,18 @@ def autoeap_from_commandline(args=None):
                            help='Save all the plots that show each step '
                                 'into a subdirectory.')
     parser.add_argument('--TH',
-                           metavar='TH', type=float, default=8,
+                           metavar='<threshold-value>', type=float, default=8,
                            help='Threshold to segment each target in each TPF '
                                 'candence. Only used if targets cannot be '
                                 'separated normally. Default is 8.')
     parser.add_argument('--ROIlower',
-                           metavar='ROIlower', type=int, default=100,
+                           metavar='<lower-ROI-value>', type=int, default=100,
                            help='The aperture frequency grid range of interest '
                                 'threshold given in absolute number of selections '
                                 'above which pixels are considered to define '
                                 'the apertures. Default is 100.')
     parser.add_argument('--ROIupper',
-                           metavar='ROIupper', type=float, default=0.85,
+                           metavar='<upper-ROI-value>', type=float, default=0.85,
                            help='The aperture frequency grid range of interest '
                                 'threshold given in relative number of selections '
                                 'w.r.t. the number of all cadences below which pixels '

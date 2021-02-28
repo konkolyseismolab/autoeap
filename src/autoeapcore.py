@@ -991,6 +991,18 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         Flux error values
     """
 
+    if apply_K2SC:
+        try:
+            from k2sc.k2io import DataReader
+            del DataReader
+        except ModuleNotFoundError:
+            print('No module named k2sc')
+            print('However you can install it via:\n')
+            print('git clone https://github.com/OxES/k2sc.git')
+            print('cd k2sc')
+            print('python setup.py install --user')
+            exit(-1)
+
     import scipy.ndimage.measurements as snm
     import os
     from astropy.io import ascii

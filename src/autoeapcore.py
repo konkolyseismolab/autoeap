@@ -758,7 +758,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         lccdpp = newlc.estimate_cdpp()
         if debug: print('New CDPP =', lccdpp )
 
-        cdpp_list.append(lccdpp)
+        cdpp_list.append( strip_quantity(lccdpp) )
 
         if show_plots:
             fig,axs = plt.subplots(2,1,figsize=(20,8))

@@ -21,7 +21,7 @@ except:
 
 # Command-line tools
 entry_points = {'console_scripts': [
-    'autoeap = autoeapcore:autoeap_from_commandline'
+    'autoeap = autoeap:autoeap_from_commandline'
 ]}
 
 desc='Automated version of Extended Aperture Photometry developed for K2 RR Lyrae stars.'

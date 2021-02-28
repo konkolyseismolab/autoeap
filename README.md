@@ -48,7 +48,7 @@ plt.show()
 
 The details of the workflow is described in [docs](https://github.com/zabop/autoeap/tree/master/docs).
 
-You can find Google Colab friendly tutorial [in the examples](https://github.com/zabop/autoeap/tree/master/examples).
+You can find Google Colab friendly tutorials [in the examples](https://github.com/zabop/autoeap/tree/master/examples).
 
 ### Apply K2 Systematics Correction (K2SC)
 If you want to apply K2SC correction for your freshly made raw-photometry, first you should install [K2SC](https://github.com/OxES/k2sc). AutoEAP is based on that package, so if you find K2SC useful, please cite [Aigrain et al.,2016,MNRAS,459,2408](https://ui.adsabs.harvard.edu/abs/2016MNRAS.459.2408A/abstract).
@@ -92,11 +92,16 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
  - `remove_spline` If `True`, after the raw photomery, a low-order spline will be fitted and removed from the extracted light curve. If ``apply_K2SC`` is also `True`, then this step will be done after the K2SC.
  - `save_lc` If `True`, the intermediate and the final light curves will be save as a file.
  - `campaign` If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign. Otherwise that campaign will be used in which the target were first observed.
- - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`.
  - `show_plots` If `True`, all the plots will be displayed.
  - `save_plots` If `True`, all the plots will be saved to a subdirectory.
  - `window_length` The length of filter window for spline correction given in days. Applies only if ``remove_spline`` is `True`. Default is `20` days.
- 
+ - `sigma_lower` The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
+ - `sigma_upper` The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
+  - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`. Do not change this value unless you are aware of what you are doing!
+  - `ROI_lower` The aperture frequency grid range of interest threshold given in absolute number of selections above which pixels are considered to define the apertures.  Do not change this value unless you are aware of what you are doing! Default is `100`.
+  - `ROI_upper` The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Do not change this value unless you are aware of what you are doing! Default is `0.85`.
+- `**kwargs` Dictionary of arguments to be passed to ``k2sc.detrend``.
+
 ## Data Access
 
 We provide photometry for targets for the following Guest Observation Programs:

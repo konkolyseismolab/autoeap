@@ -323,12 +323,18 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
         return dataset
 
     def k2sc(self,**kwargs):
+        from astropy.units import UnitConversionError
+
         dataset = self.get_k2data()
         results = detrend(dataset,**kwargs) # see keyword arguments from detrend above
-        self.tr_position = results.tr_position
-        self.tr_time = results.tr_time
-        self.pv = results.pv # hyperparameters
         try:
-            self.corr_flux = self.flux.value - self.tr_position + np.nanmedian(self.tr_position)
-        except AttributeError:
-            self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
+          self.tr_position = results.tr_position
+          self.tr_time = results.tr_time
+          self.pv = results.pv # hyperparameters
+          self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
+        except UnitConversionError:
+          unit = self.flux.unit
+
+          self['tr_position'] = results.tr_position
+          self['tr_time'] = results.tr_time
+          self['corr_flux'] = self.flux - self.tr_position*unit + np.nanmedian(self.tr_position)*unit

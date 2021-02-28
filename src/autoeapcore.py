@@ -48,7 +48,10 @@ def get_gaia(tpf, magnitude_limit=18):
         raise no_targets_found_message
     radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
     coords = tpf.wcs.all_world2pix(radecs, 1) ## TODO, is origin supposed to be zero or one?
-    year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
+    if isinstance(tpf.time, Time):
+        year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
+    else:
+        year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
     pmra = ((np.nan_to_num(np.asarray(result.pmRA)) * u.milliarcsecond/u.year) * year).to(u.deg).value
     pmdec = ((np.nan_to_num(np.asarray(result.pmDE)) * u.milliarcsecond/u.year) * year).to(u.deg).value
     result.RA_ICRS += pmra

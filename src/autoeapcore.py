@@ -1270,7 +1270,7 @@ def autoeap_from_commandline(args=None):
     """Use autoeap from command-line."""
     parser = argparse.ArgumentParser(
                 description="Perform autoEAP photometry on K2 variable stars.",
-                formatter_class=RawTextHelpFormatter)
+                formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('targettpf',
                            metavar='<targettpf-or-EPIC-number>',

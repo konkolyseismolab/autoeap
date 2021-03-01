@@ -160,7 +160,7 @@ optional arguments:
 We provide photometry for targets for the following Guest Observation Programs:
 ```GO12111,GO8037,GO13111,GO14058,GO6082,GO16058,GO18033,GO10037,GO15058,GO17033.```
 
-Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://keplerscience.arc.nasa.gov/k2-approved-programs.html)
+Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://keplergo.github.io/KeplerScienceWebsite/k2-approved-programs.html)
 
 The data we have already created have been uploaded to our [webpage](https://konkoly.hu/KIK/data_en.html).
 

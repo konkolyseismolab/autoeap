@@ -65,6 +65,12 @@ git clone https://github.com/OxES/k2sc.git
 cd k2sc
 python setup.py install --user
 ```
+
+If it fails, try to install it with ``george``:
+```
+pip3 install george k2sc
+```
+
 And then without much hassle, you can use in python:
 ```python
 import autoeap

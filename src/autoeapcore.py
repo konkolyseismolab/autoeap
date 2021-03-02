@@ -640,13 +640,13 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         # First, remove a trend
         ls =  LombScargle(lc.time, lc.flux)
         frequency, power = ls.autopower(normalization='psd',
-                                        maximum_frequency=2/lc.time.ptp(), samples_per_peak=30)
+                                        maximum_frequency=2/strip_quantity(lc.time).ptp(), samples_per_peak=30)
 
         model = ls.model(lc.time, frequency[np.argmax(power)])
 
         ls =  LombScargle(lc.time, lc.flux-model)
         frequency, power = ls.autopower(normalization='psd',
-                                        minimum_frequency=2/lc.time.ptp(),
+                                        minimum_frequency=2/strip_quantity(lc.time).ptp(),
                                         nyquist_factor=1)
 
         frequency = strip_quantity(frequency)

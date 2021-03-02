@@ -324,7 +324,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     import autoeap.photutils_stable as photutils
 
     try:
-        tpf = lightkurve.targetpixelfile.KeplerTargetPixelFile(inputfile)
+        tpf = lightkurve.targetpixelfile.KeplerTargetPixelFile(inputfile,quality_bitmask=0)
         print('Using file '+inputfile)
     except OSError:
         print('Local TPF not found, trying to download TPF instead')
@@ -341,11 +341,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 '. Only the first file has been downloaded. Please specify campaign (campaign=<number>) to limit your search.',
                 LightkurveWarning)
 
-            tpf = result[0].download()
+            tpf = result[0].download(quality_bitmask=0)
         else:
             if len(result) == 0:
                 raise FileNotFoundError('Empty search result. No target has been found in the given campaign!')
-            tpf = result.download()
+            tpf = result.download(quality_bitmask=0)
             try:
                 print('TPF found on MAST: '+result.table['observation'].tolist()[0] )
             except KeyError:

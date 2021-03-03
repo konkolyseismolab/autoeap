@@ -370,7 +370,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     goodpts =  np.isfinite(psfc1) & np.isfinite(psfc2)
 
     # --- Remove wrong cadences via detecting outlier photocenters ---
-    if len(np.where(np.abs(psfc1[goodpts])>1024)[0])==0 and len(np.where(np.abs(psfc2[goodpts])>1024)[0])==0:
+    if len(np.where(np.abs(psfc1[goodpts])>1024)[0])==0 and len(np.where(np.abs(psfc2[goodpts])>1024)[0])==0 and np.sum(goodpts)>0:
 
         newpsfc = np.c_[psfc1[goodpts],psfc2[goodpts]]
 
@@ -792,8 +792,9 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         plt.show()
 
     # Check if new aperture's CDPP is better with at least 3-sigma
-    bestcdpp = np.argmin(cdpp_list)
-    if cdpp_list[bestcdpp] < initialcdpp-3*np.std(cdpp_list):
+    if len(cdpp_list) > 0:
+        bestcdpp = np.argmin(cdpp_list)
+    if len(cdpp_list)>0 and cdpp_list[bestcdpp] < initialcdpp-3*np.std(cdpp_list):
         print('Extending aperture with new CDPP=',cdpp_list[bestcdpp])
         newmask_pixels = []
 

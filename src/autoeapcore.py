@@ -367,18 +367,23 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     psfc1 = strip_quantity( tpf.estimate_centroids()[0] )
     psfc2 = strip_quantity( tpf.estimate_centroids()[1] )
 
-    # --- Remove wrong cadences via detecting outlier photocenters ---
-    if len(np.where(np.abs(psfc1)>1024)[0])==0 and len(np.where(np.abs(psfc2)>1024)[0])==0:
+    goodpts =  np.isfinite(psfc1) & np.isfinite(psfc2)
 
-        newpsfc = np.c_[psfc1,psfc2]
+    # --- Remove wrong cadences via detecting outlier photocenters ---
+    if len(np.where(np.abs(psfc1[goodpts])>1024)[0])==0 and len(np.where(np.abs(psfc2[goodpts])>1024)[0])==0:
+
+        newpsfc = np.c_[psfc1[goodpts],psfc2[goodpts]]
 
         db = DBSCAN(eps=0.3, min_samples=10).fit(newpsfc)
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
         core_samples_mask[db.core_sample_indices_] = True
 
-    else:
-        core_samples_mask=np.full((1, len(tpf.flux)), True)[0]
+        goodpts[goodpts] = core_samples_mask
+        core_samples_mask = goodpts
 
+    else:
+        core_samples_mask = np.full(len(tpf.flux), False)
+        core_samples_mask[goodpts] = True
 
     if save_plots or show_plots:
         fig = plt.figure(figsize=(4.5,5))

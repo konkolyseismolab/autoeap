@@ -1015,7 +1015,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
     # --- Add underscores to output filenames ---
-    targettpf = targettpf.replace(' ','_')
+    targettpf = str(targettpf).replace(' ','_')
     targettpf = os.path.abspath(targettpf).split('/')[-1]
 
     # --- Draw AFG before stacking TPFs ---

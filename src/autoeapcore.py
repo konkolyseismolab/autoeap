@@ -352,7 +352,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 print('TPF found on MAST: '+result.table['mission'].tolist()[0] )
 
     # --- Add underscores to output filenames ---
-    inputfile = inputfile.replace(' ','_')
+    inputfile = str(inputfile).replace(' ','_')
     inputfile = os.path.abspath(inputfile).split('/')[-1]
 
     # --- Create folder to store plots ---

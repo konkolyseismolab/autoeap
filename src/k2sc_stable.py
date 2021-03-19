@@ -327,14 +327,32 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
 
         dataset = self.get_k2data()
         results = detrend(dataset,**kwargs) # see keyword arguments from detrend above
+
+        try:
+            try:
+                x, y = self.pos_corr1.value, self.pos_corr2.value
+                nm = np.isfinite(self.time.value) & np.isfinite(x) & np.isfinite(y)
+            except AttributeError:
+                x, y = self.pos_corr1, self.pos_corr2
+                nm = np.isfinite(self.time) & np.isfinite(x) & np.isfinite(y)
+        except:
+            try:
+                x, y = self.centroid_col.value, self.centroid_row.value
+                nm = np.isfinite(self.time.value) & np.isfinite(x) & np.isfinite(y)
+            except AttributeError:
+                x, y = self.centroid_col, self.centroid_row
+                nm = np.isfinite(self.time) & np.isfinite(x) & np.isfinite(y)
+
         try:
           self.tr_position = results.tr_position
           self.tr_time = results.tr_time
           self.pv = results.pv # hyperparameters
-          self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
+          self.corr_flux = self.flux[nm] - self.tr_position + np.nanmedian(self.tr_position)
+
         except UnitConversionError:
           unit = self.flux.unit
 
           self['tr_position'] = results.tr_position
           self['tr_time'] = results.tr_time
-          self['corr_flux'] = self.flux - self.tr_position*unit + np.nanmedian(self.tr_position)*unit
+          self['corr_flux'] = self.flux[nm] - self.tr_position*unit + np.nanmedian(self.tr_position)*unit
+        

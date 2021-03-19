@@ -1,5 +1,11 @@
 #code below is from this repository: https://github.com/OxES/k2sc
 
+def strip_quantity(data):
+    if isinstance(data, Quantity) or isinstance(data, Time):
+        return data.value
+    else:
+        return data
+
 def psearch(time, flux, min_p, max_p):
     '''
     Search for a statistically significant period using a Lomb-Scargle periodogram.

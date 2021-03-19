@@ -1,5 +1,8 @@
 #code below is from this repository: https://github.com/OxES/k2sc
 
+from astropy.units.quantity import Quantity
+from astropy.time.core import Time
+
 def strip_quantity(data):
     if isinstance(data, Quantity) or isinstance(data, Time):
         return data.value

@@ -1,5 +1,14 @@
 #code below is from this repository: https://github.com/OxES/k2sc
 
+from astropy.units.quantity import Quantity
+from astropy.time.core import Time
+
+def strip_quantity(data):
+    if isinstance(data, Quantity) or isinstance(data, Time):
+        return data.value
+    else:
+        return data
+
 def psearch(time, flux, min_p, max_p):
     '''
     Search for a statistically significant period using a Lomb-Scargle periodogram.
@@ -289,52 +298,60 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
     lc.k2sc()
     '''
 
-    def get_k2data(self):
+    def get_k2data(self,outlier_ratio=2.0):
         try:
-            try: x, y = self.pos_corr1.value, self.pos_corr2.value
-            except AttributeError: x, y = self.pos_corr1, self.pos_corr2
+            # --- Use POS_CORR if possible ---
+            goodposcorr = None
+            x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
+
+            # --- Use Centroid if there are too many missing values ---
+            if np.sum(np.isfinite(x))/np.sum(np.isfinite(strip_quantity(self.time)))*100 > outlier_ratio or \
+            np.sum(np.isfinite(y))/np.sum(np.isfinite(strip_quantity(self.time)))*100 > outlier_ratio:
+                goodposcorr = np.sum(np.isfinite(x) & np.isfinite(y))
+                raise ValueError
         except:
-            try: x, y = self.centroid_col.value, self.centroid_row.value
-            except AttributeError: x, y = self.centroid_col, self.centroid_row
-        try:
-            dataset = K2Data(self.targetid,
-                          time    = self.time.value,
-                          cadence = self.cadenceno,
-                          quality = self.quality.value,
-                          fluxes  = self.flux.value,
-                          errors  = self.flux_err.value,
-                          x       = x,
-                          y       = y,
-                          primary_header = self.primary_header,
-                          data_header    = self.data_header,
-                          campaign       = self.campaign)
-        except AttributeError:
-            dataset = K2Data(self.targetid,
-                          time    = self.time,
-                          cadence = self.cadenceno,
-                          quality = self.quality,
-                          fluxes  = self.flux,
-                          errors  = self.flux_err,
-                          x       = x,
-                          y       = y,
-                          primary_header = self.primary_header,
-                          data_header    = self.data_header,
-                          campaign       = self.campaign)
+            x, y = strip_quantity(self.centroid_col), strip_quantity(self.centroid_row)
+
+            # --- If POS_CORR missing values == Centroid missing values -> use POS_CORR ---
+            if goodposcorr is not None and np.sum(np.isfinite(x) & np.isfinite(y)) == goodposcorr:
+                x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
+
+        dataset = K2Data(self.targetid,
+                      time    = strip_quantity(self.time),
+                      cadence = strip_quantity(self.cadenceno),
+                      quality = strip_quantity(self.quality),
+                      fluxes  = strip_quantity(self.flux),
+                      errors  = strip_quantity(self.flux_err),
+                      x       = x,
+                      y       = y,
+                      primary_header = self.primary_header,
+                      data_header    = self.data_header,
+                      campaign       = self.campaign)
         return dataset
 
-    def k2sc(self,**kwargs):
+    def k2sc(self,outlier_ratio=2.0,**kwargs):
         from astropy.units import UnitConversionError
 
-        dataset = self.get_k2data()
+        dataset = self.get_k2data(outlier_ratio=outlier_ratio)
         results = detrend(dataset,**kwargs) # see keyword arguments from detrend above
-        try:
-          self.tr_position = results.tr_position
-          self.tr_time = results.tr_time
-          self.pv = results.pv # hyperparameters
-          self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
-        except UnitConversionError:
-          unit = self.flux.unit
 
-          self['tr_position'] = results.tr_position
-          self['tr_time'] = results.tr_time
-          self['corr_flux'] = self.flux - self.tr_position*unit + np.nanmedian(self.tr_position)*unit
+        if results == 0:
+            try:
+                unit = self.flux.unit
+                self['corr_flux'] = self.flux * 1.0*unit
+            except AttributeError:
+                self.corr_flux = self.flux * 1.0
+
+        else:
+            try:
+                self.tr_position = results.tr_position
+                self.tr_time = results.tr_time
+                self.pv = results.pv # hyperparameters
+                self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
+
+            except UnitConversionError:
+                unit = self.flux.unit
+
+                self['tr_position'] = results.tr_position
+                self['tr_time'] = results.tr_time
+                self['corr_flux'] = self.flux - self.tr_position*unit + np.nanmedian(self.tr_position)*unit

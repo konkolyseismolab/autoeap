@@ -344,7 +344,10 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
             tpf = result[0].download(quality_bitmask=98304)
         else:
             if len(result) == 0:
-                raise FileNotFoundError('Empty search result. No target has been found in the given campaign!')
+                raise FileNotFoundError("""Empty search result. No target has been found in the given campaign!\n
+                                        If it is a splitted campaign e.g. 10, use 101 or 102!\n
+                                        If still no results, install lightkurve 1.11.0\n
+                                        pip install lightkurve==1.11.0""")
             tpf = result.download(quality_bitmask=98304)
             try:
                 print('TPF found on MAST: '+result.table['observation'].tolist()[0] )
@@ -723,15 +726,17 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
 
     newfinallc = None
 
-    initialcdpp = lclist[variableindex].estimate_cdpp()
+    initialcdpp = strip_quantity(lclist[variableindex].estimate_cdpp())
     print('Initial CDPP=',  initialcdpp)
 
-    initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
+    #initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
+    initialmask = gapfilledaperturelist[variableindex]
 
     # Append 1-pixel-width corona to aperture
     newcorona = CreateMaskCorona(gapfilledaperturelist[variableindex])
 
-    newcorona[initialmask] = False
+    #newcorona[initialmask] = False
+    newcorona[gapfilledaperturelist[variableindex]] = False
     umcorona = np.where(newcorona)
 
     # Loop over the pixels in corona and calculate CDPP for each extended aperture
@@ -760,7 +765,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             plt.close(fig)
 
         newlc = tpf.to_lightcurve(aperture_mask=newmask)
-        lccdpp = newlc.estimate_cdpp()
+        lccdpp = strip_quantity(newlc.estimate_cdpp())
         if debug: print('New CDPP =', lccdpp )
 
         cdpp_list.append( strip_quantity(lccdpp) )
@@ -813,7 +818,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             newmask[gapfilledaperturelist[variableindex]] = True
 
             newlc = tpf.to_lightcurve(aperture_mask=newmask)
-            lccdpp = newlc.estimate_cdpp()
+            lccdpp = strip_quantity(newlc.estimate_cdpp())
 
             if lccdpp < cdpp_list[bestcdpp]:
                 if debug: print('Adding another pixel to new aperture with new cdpp=',lccdpp)
@@ -919,6 +924,31 @@ def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
 
     return splinedLC, trendLC
 
+def outlier_correction_before_k2sc(lc,outlier_ratio=2.0):
+    try:
+         # --- Use POS_CORR if possible ---
+        x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
+        nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
+
+        # --- Use Centroid if there are too many missing values ---
+        if np.sum(np.isfinite(x))/np.sum(np.isfinite(strip_quantity(lc.time)))*100 > outlier_ratio or \
+        np.sum(np.isfinite(y))/np.sum(np.isfinite(strip_quantity(lc.time)))*100 > outlier_ratio or \
+        np.sum(np.isfinite(x) & np.isfinite(y))==0:
+            goodposcorr = np.sum(np.isfinite(x) & np.isfinite(y))
+            raise ValueError
+    except:
+        x, y = strip_quantity(lc.centroid_col), strip_quantity(lc.centroid_row)
+        nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
+
+        # --- If POS_CORR missing values == Centroid missing values -> use POS_CORR ---
+        if np.sum(np.isfinite(x) & np.isfinite(y)) == goodposcorr:
+            x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
+            nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
+
+    lc = lc.copy()[nm]
+
+    return lc
+
 ################
 # Main function
 ################
@@ -926,6 +956,7 @@ def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
                         window_length=20, sigma_lower=3, sigma_upper=3,
+                        outlier_ratio=2.0,
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
     """
@@ -968,6 +999,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         The number of standard deviations to use as the upper bound for sigma
         clipping limit before spline correction. Applies only
         if ``remove_spline`` is `True`.
+    outlier_ratio: float, default: 2
+        Missing value threshold in % below which position correction values
+        (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the
+        light curve points! Otherwise, less reliable photometrically estimated
+        centroids will be used.
     TH : int or float, default: 8
         Threshold to segment each target in each TPF candence. Only used if
         targets cannot be separated normally. Do not change this value unless
@@ -1004,9 +1040,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         except ModuleNotFoundError:
             print('No module named k2sc')
             print('However you can install it via:\n')
-            print('git clone https://github.com/OxES/k2sc.git')
-            print('cd k2sc')
-            print('python setup.py install --user')
+            print('pip install george k2sc')
             exit(-1)
 
     import scipy.ndimage.measurements as snm
@@ -1169,20 +1203,30 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 from autoeap.k2sc_stable import psearch,k2sc_lc
 
-                lclist[variableindex].primary_header = tpf.hdu[0].header
-                lclist[variableindex].data_header = tpf.hdu[1].header
                 lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
                 lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
+
+                lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio)
+
+                lclist[variableindex].primary_header = tpf.hdu[0].header
+                lclist[variableindex].data_header = tpf.hdu[1].header
                 lclist[variableindex].__class__ = k2sc_lc
 
                 period, fap = psearch( strip_quantity(lclist[variableindex].time) ,
-                                        strip_quantity(lclist[variableindex].flux),
-                                        min_p=0,
-                                        max_p=strip_quantity(lclist[variableindex].time).ptp()/2)
+                                    strip_quantity(lclist[variableindex].flux),
+                                    min_p=0,
+                                    max_p=strip_quantity(lclist[variableindex].time).ptp()/2)
                 print('Proposed period for periodic kernel is %.2f' % period)
 
-                lclist[variableindex].k2sc(campaign=campaignnum, kernel='quasiperiodic',kernel_period=period,**kwargs)
-
+                lclist[variableindex].k2sc(campaign=campaignnum,
+                                       kernel='quasiperiodic',
+                                       kernel_period=period,
+                                       outlier_ratio=outlier_ratio, **kwargs)
+                if not hasattr(lclist[variableindex],'tr_time'):
+                    from lightkurve.utils import LightkurveWarning
+                    # No useful POS_COR or Centroid points (probably Campaign 101)
+                    warnings.warn('No useful POS_COR or Centroid points (probably Campaign 101)\nReturning raw EAP photometry!',
+                                  LightkurveWarning)
 
                 # --- Removing outliers before saving light curve (or removing spline) ---
                 lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)
@@ -1315,6 +1359,14 @@ def autoeap_from_commandline(args=None):
                            help='The number of standard deviations to use '
                                 'as the upper bound for sigma clipping limit '
                                 'before spline correction. Default is 3.')
+    parser.add_argument('--outlierratio',
+                           metavar='<outlier-ratio>', type=float, default=2.0,
+                           help='Missing value threshold in % below which '
+                                'position correction values (POS_CORR) are '
+                                'used for K2SC. Missing POS_CORR values will '
+                                'reduce the light curve points! Otherwise, '
+                                'less reliable photometrically estimated '
+                                'centroids will be used. Default is 2.')
     parser.add_argument('--saveplots',
                            action='store_true',
                            help='Save all the plots that show each step '
@@ -1340,6 +1392,7 @@ def autoeap_from_commandline(args=None):
 
     args = parser.parse_args(args)
 
+
     _ = createlightcurve(args.targettpf,
                     apply_K2SC=args.applyK2SC,
                     remove_spline=args.removespline,
@@ -1349,6 +1402,7 @@ def autoeap_from_commandline(args=None):
                     window_length=args.windowlength,
                     sigma_lower=args.sigmalower,
                     sigma_upper=args.sigmaupper,
+                    outlier_ratio=args.outlierratio,
                     TH=args.TH,
                     ROI_lower=args.ROIlower,
                     ROI_upper=args.ROIupper)

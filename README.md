@@ -115,6 +115,7 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
  - `window_length` The length of filter window for spline correction given in days. Applies only if ``remove_spline`` is `True`. Default is `20` days.
  - `sigma_lower` The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
  - `sigma_upper` The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
+ - `outlier_ratio` Missing value threshold in % below which position correction values (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the light curve points! Otherwise, less reliable photometrically estimated centroids will be used. Default is `2`.
   - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`. Do not change this value unless you are aware of what you are doing!
   - `ROI_lower` The aperture frequency grid range of interest threshold given in absolute number of selections above which pixels are considered to define the apertures.  Do not change this value unless you are aware of what you are doing! Default is `100`.
   - `ROI_upper` The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Do not change this value unless you are aware of what you are doing! Default is `0.85`.
@@ -152,6 +153,8 @@ optional arguments:
                         The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Default is 3.
   --sigmaupper <sigma-upper>
                         The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Default is 3.
+  --outlierratio <outlier-ratio>
+                        Missing value threshold in % below which position correction values (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the light curve points! Otherwise, less reliable photometrically estimated centroids will be used. Default is 2.
   --saveplots           Save all the plots that show each step into a subdirectory.
   --TH <threshold-value>
                         Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is 8.

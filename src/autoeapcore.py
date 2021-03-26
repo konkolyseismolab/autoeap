@@ -729,18 +729,20 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
     initialcdpp = strip_quantity(lclist[variableindex].estimate_cdpp())
     print('Initial CDPP=',  initialcdpp)
 
-    #initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
-    initialmask = gapfilledaperturelist[variableindex]
+    #initialmaskall = np.sum(initialmask, axis=0, dtype=np.bool)
+    initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
+    #initialmask = gapfilledaperturelist[variableindex]
 
     # Append 1-pixel-width corona to aperture
     newcorona = CreateMaskCorona(gapfilledaperturelist[variableindex])
 
-    #newcorona[initialmask] = False
-    newcorona[gapfilledaperturelist[variableindex]] = False
+    newcorona[initialmask] = False
+    #newcorona[gapfilledaperturelist[variableindex]] = False
     umcorona = np.where(newcorona)
 
     # Loop over the pixels in corona and calculate CDPP for each extended aperture
     cdpp_list = []
+    cdpp_ij_list = []
     for ii,jj in zip(umcorona[0],umcorona[1]):
 
         if gapfilledaperturelist[variableindex][ii,jj]:
@@ -769,6 +771,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         if debug: print('New CDPP =', lccdpp )
 
         cdpp_list.append( strip_quantity(lccdpp) )
+        cdpp_ij_list.append( [ii,jj] )
 
         if show_plots:
             fig,axs = plt.subplots(2,1,figsize=(20,8))
@@ -803,11 +806,18 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         print('Extending aperture with new CDPP=',cdpp_list[bestcdpp])
         newmask_pixels = []
 
-        i0,j0 = umcorona[0][bestcdpp], umcorona[1][bestcdpp]
+        i0,j0 = cdpp_ij_list[bestcdpp]
+        #umcorona[0][bestcdpp], umcorona[1][bestcdpp]
         newmask_pixels.append([i0,j0])
 
+        # If additional pixel is from another star do not add more pixels
+        #if debug and initialmaskall[i0,j0]: print('Pixel is from another star')
+        #if not initialmaskall[i0,j0]:
+
+        # Get location of adjacents pixels of the best additional pixel
         adjacent_pixels = np.where( (np.abs(umcorona[0]-i0)<=1) & (np.abs(umcorona[1]-j0)<=1) )[0]
 
+        # Check if adding additional adjacents pixel(s) improve the CDPP
         for adjpix in adjacent_pixels:
             iadj = umcorona[0][adjpix]
             jadj = umcorona[1][adjpix]
@@ -843,7 +853,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             axs[0].set_ylabel('Flux')
             axs[0].set_title('The lc which is identified as a variable')
 
-            axs[1].plot( strip_quantity(newlc.time) ,strip_quantity(newlc.flux) ,c='k')
+            axs[1].plot( strip_quantity(newfinallc.time) ,strip_quantity(newfinallc.flux) ,c='k')
             axs[1].set_xlabel('Time')
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The lc after aperture size optimization')

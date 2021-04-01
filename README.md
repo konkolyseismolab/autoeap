@@ -110,8 +110,8 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
  - `remove_spline` If `True`, after the raw photomery, a low-order spline will be fitted and removed from the extracted light curve. If ``apply_K2SC`` is also `True`, then this step will be done after the K2SC.
  - `save_lc` If `True`, the intermediate and the final light curves will be save as a file.
  - `campaign` If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign. Otherwise that campaign will be used in which the target were first observed.
- - `show_plots` If `True`, all the plots will be displayed.
- - `save_plots` If `True`, all the plots will be saved to a subdirectory.
+ - `show_plots` If `True`, all the plots that visualize each step of photometry will be displayed.
+ - `save_plots` If `True`, all the plots that visualize each step of photometry will be saved to a subdirectory.
  - `window_length` The length of filter window for spline correction given in days. Applies only if ``remove_spline`` is `True`. Default is `20` days.
  - `sigma_lower` The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
  - `sigma_upper` The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.

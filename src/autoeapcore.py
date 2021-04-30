@@ -116,7 +116,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     if len(whichstarisinaperture) > 1:
         magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
         magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=17 and not bright_star_is_outside_of_CCD:
+        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=16.8 and not bright_star_is_outside_of_CCD:
             numberofstars = 0
             whichstarisinaperture = []
 

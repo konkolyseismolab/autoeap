@@ -153,101 +153,101 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     return numberofstars,whichstarisinaperture,not_split_flag
 
 def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
-        from scipy.stats import binned_statistic_2d
-        from scipy.spatial import distance_matrix
+    from scipy.stats import binned_statistic_2d
+    from scipy.spatial import distance_matrix
 
-        # Keep only the brightest targets per pixel
-        npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
-                                                    range=[[-1,tpf.shape[2]],[-1,tpf.shape[1]]],
-                                                    bins=(tpf.shape[2]+1,tpf.shape[1]+1),
-                                                    statistic='count')
+    # Keep only the brightest targets per pixel
+    npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
+                                                range=[[-1,tpf.shape[2]],[-1,tpf.shape[1]]],
+                                                bins=(tpf.shape[2]+1,tpf.shape[1]+1),
+                                                statistic='count')
 
-        umbin = []
-        for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
-            umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
-                                    & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
+    umbin = []
+    for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
+        umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
+                                & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
 
-        deletevalues = []
-        for um in umbin:
-            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+    deletevalues = []
+    for um in umbin:
+        deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
 
+    for key in gaia.keys():
+        gaia[key] = np.delete(gaia[key], deletevalues)
+
+    # Find close targets and keep only the brightest target
+    distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
+    umbin = np.where( (distances>0) & (distances<1.41) )
+
+    deletevalues = []
+    for um in zip(umbin[0],umbin[1]):
+        um = np.array(um)
+        deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+
+    deletevalues = np.unique(deletevalues)
+
+    if len(deletevalues)>0:
         for key in gaia.keys():
             gaia[key] = np.delete(gaia[key], deletevalues)
 
-        # Find close targets and keep only the brightest target
-        distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
-        umbin = np.where( (distances>0) & (distances<1.41) )
+    apsbckup = aps.copy()
+    # Move stars near edge closer to edge
+    um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
+    if len(um)>0:
+        gaia['x'][um]=-0.5
 
-        deletevalues = []
-        for um in zip(umbin[0],umbin[1]):
-            um = np.array(um)
-            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+    um = np.where( (-0.5>=gaia['y']) & (gaia['y']>=-1) )[0]
+    if len(um)>0:
+        gaia['y'][um]=-0.5
 
-        deletevalues = np.unique(deletevalues)
+    um = np.where( (tpf.flux.shape[2]+0.5>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
+    if len(um)>0:
+        gaia['x'][um]=tpf.flux.shape[2]-0.5
 
-        if len(deletevalues)>0:
-            for key in gaia.keys():
-                gaia[key] = np.delete(gaia[key], deletevalues)
+    um = np.where( (tpf.flux.shape[1]+0.5>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
+    if len(um)>0:
+        gaia['y'][um]=tpf.flux.shape[1]-0.5
 
-        apsbckup = aps.copy()
-        # Move stars near edge closer to edge
-        um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
-        if len(um)>0:
-            gaia['x'][um]=-0.5
+    weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
+    for apnumber in range(1,np.max(aps)+1):
+        _currentmaxapnumber = np.max(apsbckup)
+        starinsideaperture,whichstarisinaperture,_ = how_many_stars_inside_aperture(apnumber,aps,gaia)
+        if gaia is not None and starinsideaperture > 1:
+            if show_plots or save_plots:
+                fig = plt.figure(figsize=(6,6))
+                plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
+                plt.imshow(aps,origin='lower')
 
-        um = np.where( (-0.5>=gaia['y']) & (gaia['y']>=-1) )[0]
-        if len(um)>0:
-            gaia['y'][um]=-0.5
+                filtered=apdrawer((aps==apnumber)*1)
+                for x in range(len(filtered)):
+                    plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=3)
 
-        um = np.where( (tpf.flux.shape[2]+0.5>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
-        if len(um)>0:
-            gaia['x'][um]=tpf.flux.shape[2]-0.5
+                plt.scatter(gaia['x'],gaia['y'],color='k',marker='x',s=20*np.abs(40-gaia['Gmag']))
+                plt.scatter(gaia['x'],gaia['y'],color='k',s=2*np.abs(40-gaia['Gmag']) )
 
-        um = np.where( (tpf.flux.shape[1]+0.5>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
-        if len(um)>0:
-            gaia['y'][um]=tpf.flux.shape[1]-0.5
-
-        weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
-        for apnumber in range(1,np.max(aps)+1):
-            _currentmaxapnumber = np.max(apsbckup)
-            starinsideaperture,whichstarisinaperture,_ = how_many_stars_inside_aperture(apnumber,aps,gaia)
-            if gaia is not None and starinsideaperture > 1:
-                if show_plots or save_plots:
-                    fig = plt.figure()
-                    plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
-                    plt.imshow(aps,origin='lower')
-
-                    filtered=apdrawer((aps==apnumber)*1)
-                    for x in range(len(filtered)):
-                        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=3)
-
-                    plt.plot(gaia['x'],gaia['y'],'kx',ms=20)
-                    plt.plot(gaia['x'],gaia['y'],'ko')
-
-                thismask = np.where(aps==apnumber)
-                for y,x in zip(thismask[0],thismask[1]):
-                    dist = []
-                    for gaiaID in whichstarisinaperture:
-                        dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2) * weight[gaiaID]  )
-
-                    if show_plots or save_plots:
-                        text = plt.text(x, y, str(round(np.min(dist),1)) ,
-                                            ha="center", va="center", color='C'+str(np.argmin(dist)))
-
-                    mindistat = np.argmin(dist)
-                    if mindistat==0: continue
-                    else:
-                        apsbckup[y,x] = _currentmaxapnumber+mindistat
+            thismask = np.where(aps==apnumber)
+            for y,x in zip(thismask[0],thismask[1]):
+                dist = []
+                for gaiaID in whichstarisinaperture:
+                    dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2) * weight[gaiaID]  )
 
                 if show_plots or save_plots:
-                    plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
-                    plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
-                    plt.tight_layout()
-                    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png')
-                    if show_plots: plt.show()
-                    plt.close(fig)
+                    text = plt.text(x, y, str(round(np.min(dist),1)) ,
+                                        ha="center", va="center", color='C'+str(np.argmin(dist)))
 
-        return apsbckup
+                mindistat = np.argmin(dist)
+                if mindistat==0: continue
+                else:
+                    apsbckup[y,x] = _currentmaxapnumber+mindistat
+
+            if show_plots or save_plots:
+                plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
+                plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
+                plt.tight_layout()
+                if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png',dpi=150)
+                if show_plots: plt.show()
+                plt.close(fig)
+
+    return apsbckup
 
 def apdrawer(intgrid):
     down=[];up=[];left=[];right=[]
@@ -300,13 +300,12 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     plt.title('C'+str(tpf.campaign)+' '+str(tpf.targetid)+'\nCadence no: '+str(cadence),fontsize=20)
     cbar = plt.colorbar()
     cbar.ax.get_yaxis().labelpad = 20
-    cbar.set_label('log(Calibrated Flux)', rotation=270, fontsize=20)
+    cbar.set_label('log(Calibrated Flux)', rotation=270,fontsize=20)
     filtered=apdrawer((segm.data>0)*1)
     for x in range(len(filtered)):
-        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=12)
-        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='w',linewidth=6)
+        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='k',linewidth=5)
     plt.tight_layout()
-    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_single_tpf_cadencenum_'+str(cadence)+'.png')
+    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_single_tpf_cadencenum_'+str(cadence)+'.png',dpi=150)
     if show_plots: plt.show()
     plt.close(fig)
 
@@ -388,34 +387,60 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         core_samples_mask = np.full(len(tpf.flux), False)
         core_samples_mask[goodpts] = True
 
+    # --- Select extrema ---
+    um = np.where(core_samples_mask == True)[0]
+    psfc1good = psfc1[um]
+    psfc2good = psfc2[um]
+    # use only the middle 80% of points in time
+    cut1 = int(len(psfc1good)*0.1)
+    cut2 = int(len(psfc1good)*0.9)
+    psfc1good = psfc1good[ cut1 : cut2 ]
+    psfc2good = psfc2good[ cut1 : cut2 ]
+    # Subtract mean to find extrema
+    psfc1good -= np.mean(psfc1good)
+    psfc2good -= np.mean(psfc2good)
+    # Use points that are gt 0 to select right side maximum
+    um1 = np.where( psfc2good>0 )[0]
+    # Maximum is at where the distance from the origo is max
+    um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
+    psfmax1 = um[cut1:cut2][um1[um2]]
+    # Use points that are lt 0 to select left side maximum
+    um1 = np.where( psfc2good<0 )[0]
+    # Maximum is at where the distance from the origo is max
+    um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
+    psfmax2 = um[cut1:cut2][um1[um2]]
+
     if save_plots or show_plots:
-        fig = plt.figure(figsize=(4.5,5))
+        fig = plt.figure(figsize=(7,5))
 
         gs = gridspec.GridSpec(5, 5)
         ax0 = plt.subplot(gs[1:, 1:])
         ax1 = plt.subplot(gs[0, 1:])
         ax2 = plt.subplot(gs[1:, 0])
 
-        ax0.scatter(psfc1,psfc2,s=5)
-        ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=5,c='r')
+        cb = ax0.scatter(psfc1,psfc2,s=5,c=strip_quantity( tpf.time ),cmap='copper')
+        ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=5,c='r',marker='x')
         ax0.yaxis.tick_right()
         ax0.yaxis.set_label_position("right")
-        ax0.set_xlabel('PSF CENTR1',fontsize=14)
-        ax0.set_ylabel('PSF CENTR2',fontsize=14)
+        ax0.set_xlabel('PSF CENTR1')
+        ax0.set_ylabel('PSF CENTR2')
 
-        ax1.scatter( strip_quantity(tpf.time) ,psfc1,s=5)
-        ax1.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=5,c='r')
-        ax1.set_xlabel('BJD',fontsize=14)
-        ax1.set_ylabel('PSF\nCENTR1',fontsize=14)
+        ax1x = ax1.twinx()
+        ax1x.scatter( strip_quantity(tpf.time) ,psfc1,s=5,c=strip_quantity( tpf.time ),cmap='copper')
+        ax1x.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=5,c='r',marker='x')
+        ax1x.set_ylabel('PSF CENTR1')
+        ax1.set_xlabel('BJD')
         ax1.xaxis.tick_top()
         ax1.xaxis.set_label_position('top')
+        ax1.set_yticks([])
 
-        ax2.scatter(psfc2, strip_quantity(tpf.time) ,s=5)
-        ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=5,c='r')
-        ax2.set_xlabel('PSF CENTR2',fontsize=14)
-        ax2.set_ylabel('BJD',fontsize=14)
-        plt.tight_layout()
-        if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png')
+        ax2.scatter(psfc2, strip_quantity(tpf.time) ,s=5,c=strip_quantity( tpf.time ),cmap='copper')
+        ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=5,c='r',marker='x')
+        ax2.set_ylabel('BJD')
+        ax2.tick_params(axis='x', rotation=45)
+        ax2.set_xlabel('PSF CENTR2')
+        ax2.xaxis.set_label_position("top")
+        if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png',dpi=150)
         if show_plots: plt.show()
         plt.close(fig)
 
@@ -482,7 +507,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         # Mask saturated pixels
         countergrid_all[mask_saturated==1] = 0
 
-    return countergrid_all, tpf, len(core_samples_mask), campaignnum
+    return countergrid_all, tpf, len(core_samples_mask), campaignnum, (psfmax1,psfmax2)
 
 
 
@@ -490,17 +515,17 @@ def plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,eachfi
 
     #plt.figure(figsize=(10,3))
     fig = plt.figure()
-    plt.title('Range Of Interest',fontsize=20)
+    plt.title('Range Of Interest')
     plt.plot(numfeatureslist)
     plt.axvline(x=apindex,c='r',alpha=0.5)
 
-    plt.axvspan(ROI[0], ROI[1], alpha=0.2, color='blue')
+    plt.axvspan(ROI[0], ROI[1], alpha=0.3, color='gray')
 
-    plt.xlabel('Threshold',fontsize=20)
-    plt.ylabel('# stars found',fontsize=20)
+    plt.xlabel('Threshold of selected number of pixels')
+    plt.ylabel('# of identified stars in the AFG')
 
     plt.tight_layout()
-    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_plot_numofstars_vs_threshold'+str(iterationnum)+'.png')
+    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_plot_numofstars_vs_threshold'+str(iterationnum)+'.png',dpi=100)
     if show_plots: plt.show()
     plt.close(fig)
 
@@ -558,8 +583,8 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,d
 
 def tpfplot(tpf,apindex,apertures,aps):
 
-    fig = plt.figure()
-    plt.title('Frame: '+str(apindex),fontsize=24)
+    fig = plt.figure(figsize=(6,6))
+    plt.title('Frame: '+str(apindex),fontsize=20)
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
         plt.pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindex]) ), cmap='viridis')
@@ -573,8 +598,71 @@ def tpfplot(tpf,apindex,apertures,aps):
             cords=np.where(x==aps)
             plt.text(cords[1][0],cords[0][0],str(x),fontsize=30)
 
+    img_extent = (
+    tpf.column,
+    tpf.column + tpf.shape[2],
+    tpf.shape[2],
+    tpf.row,
+    tpf.row + tpf.shape[1],
+    tpf.shape[1]
+    )
+
+    plt.xticks(np.arange(img_extent[2]) +0.5 , np.arange(img_extent[0],img_extent[1]))
+    plt.yticks(np.arange(img_extent[5]) +0.5 , np.arange(img_extent[3],img_extent[4]))
+
     #if show_plots: plt.show()
     return fig
+
+
+def tpfplot_at_extrema(tpf,apindexes,apertures,aps):
+    from matplotlib.gridspec import GridSpec
+
+    fig = plt.figure(figsize=(13,6))
+
+    gs  = GridSpec(1,17,figure=fig)
+    ax1 = plt.subplot(gs[:8])
+    ax2 = plt.subplot(gs[8:-1])
+    axcbar = plt.subplot(gs[-1])
+    axs = [ax1,ax2]
+    axs[0].set_title('Frame: '+str(apindexes[0]))
+    axs[1].set_title('Frame: '+str(apindexes[1]))
+    # Switch off warnings for nan,inf values
+    with warnings.catch_warnings(record=True) as w:
+        axs[0].pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindexes[0]]) ), cmap='viridis')
+        cb = axs[1].pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindexes[1]]) ), cmap='viridis')
+
+    plt.colorbar(cb, cax = axcbar, label='log(Calibrated Flux)')
+
+    #filtered=apdrawer(apertures*1)
+    #for x in range(len(filtered)):
+    #    axs[0].plot(filtered[x][0],filtered[x][1],c='red', linewidth=8)
+
+    if aps is not None:
+        for x in range(1,np.max(aps)+1):
+            cords=np.where(x==aps)
+            axs[0].text(cords[1][0],cords[0][0],str(x),fontsize=20,color='w')
+            axs[1].text(cords[1][0],cords[0][0],str(x),fontsize=20,color='w')
+
+    img_extent = (
+    tpf.column,
+    tpf.column + tpf.shape[2],
+    tpf.shape[2],
+    tpf.row,
+    tpf.row + tpf.shape[1],
+    tpf.shape[1]
+    )
+
+    axs[0].set_xticks(np.arange(img_extent[2]) +0.5)
+    axs[0].set_xticklabels(np.arange(img_extent[0],img_extent[1]) )
+    axs[0].set_yticks(np.arange(img_extent[5]) +0.5)
+    axs[0].set_yticklabels(np.arange(img_extent[3],img_extent[4]) )
+    axs[1].set_xticks(np.arange(img_extent[2]) +0.5)
+    axs[1].set_xticklabels(np.arange(img_extent[0],img_extent[1]) )
+    axs[1].set_yticks(np.arange(img_extent[5]) +0.5)
+    axs[1].set_yticklabels(np.arange(img_extent[3],img_extent[4]) )
+
+    #if show_plots: plt.show()
+    return fig,axs
 
 
 def apgapfilling(aperture):
@@ -642,7 +730,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     max_powers   = []
 
     nrows = len(lclist)
-    fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
+    fig,axs = plt.subplots(nrows,2,figsize=(24,2*nrows),squeeze=False)
     for ii,lc in enumerate(lclist):
 
         # First, remove a trend
@@ -666,13 +754,20 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
             umcut = np.where( np.logical_and(frequency>(jj+1)*sixhourspeak-3*df,frequency<(jj+1)*sixhourspeak+3*df )  )
             power[umcut]     = np.nan
 
-        axs[ii,0].plot(frequency, power,label='Target %d' % (ii+1))
-        axs[ii,0].set_xlabel('Frequency',fontsize=20)
-        axs[ii,0].set_ylabel('Power',fontsize=20)
+        # --- Plot spectrum ---
+        axs[ii,1].plot(frequency, power,label='Target %d' % (ii+1))
+        axs[ii,1].set_xlabel('Frequency')
+        axs[ii,1].set_ylabel('Power')
         #plt.xlim([0, nyquist/2])
         #plt.xlim([2/lclist[q].time.ptp(), nyquist/2])
-        axs[ii,0].set_ylim(bottom=0)
-        axs[ii,0].legend()
+        axs[ii,1].set_ylim(bottom=0)
+        axs[ii,1].legend()
+
+        # --- Plot light curve ---
+        axs[ii,0].plot( strip_quantity(lc.time) , strip_quantity(lc.flux) )
+        axs[ii,0].title.set_text('Target '+str(ii+1))
+        axs[ii,0].set_xlabel('Time')
+        axs[ii,0].set_ylabel('Flux')
 
         with warnings.catch_warnings(record=True) as w:
 
@@ -686,7 +781,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         max_powers.append(np.nanmax(power))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
-    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')
+    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_lc_spectrum_iterationnum_'+str(iterationnum)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
 
@@ -754,9 +849,9 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         newmask_nocorona = newmask.copy()
         newmask[ ii,jj ] = True
 
-        if show_plots:
-            print('Checking CDPP with +1 pixel from corona (dashed orange)')
-            fig = tpfplot(tpf,0,initialmask,None)
+        if debug:
+            print('Checking CDPP with +1 pixel adjacent pixels (dashed orange)')
+            fig = tpfplot(tpf,tpf.shape[0]//2,initialmask,None)
             filtered=apdrawer(newmask*1)
             for x in range(len(filtered)):
                 plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
@@ -773,28 +868,28 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         cdpp_list.append( strip_quantity(lccdpp) )
         cdpp_ij_list.append( [ii,jj] )
 
-        if show_plots:
+        if debug:
             fig,axs = plt.subplots(2,1,figsize=(20,8))
             axs[0].plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
             axs[0].set_xlabel('Time')
             axs[0].set_ylabel('Flux')
-            axs[0].set_title('The lc which is identified as a variable')
+            axs[0].set_title('The light curve of the variable star')
 
             axs[1].plot( strip_quantity(newlc.time) , strip_quantity(newlc.flux) ,c='k')
             axs[1].set_xlabel('Time')
             axs[1].set_ylabel('Flux')
-            axs[1].set_title('The lc after adding +1 pixel from corona')
+            axs[1].set_title('The light curve after adding +1 pixel adjacent pixels')
             plt.tight_layout()
             if show_plots: plt.show()
             plt.close(fig)
 
     cdpp_list = np.array(cdpp_list)
     if debug:
-        plt.title('CDPPs after adding +1-1 pixels from corona')
+        plt.title('CDPPs after adding +1-1 pixels from adjacent pixels')
         plt.plot(cdpp_list)
         plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
         plt.axhline(initialcdpp-3*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
-        plt.xlabel('Final aperture + 1 pixel from corona')
+        plt.xlabel('Final aperture + 1 pixel adjacent pixels')
         plt.ylabel('CDPP')
         plt.legend()
         plt.show()
@@ -851,7 +946,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             axs[0].plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
             axs[0].set_xlabel('Time')
             axs[0].set_ylabel('Flux')
-            axs[0].set_title('The lc which is identified as a variable')
+            axs[0].set_title('The light curve of the variable star')
 
             axs[1].plot( strip_quantity(newfinallc.time) ,strip_quantity(newfinallc.flux) ,c='k')
             axs[1].set_xlabel('Time')
@@ -887,7 +982,7 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     rownums = np.arange( tpf.row,    tpf.row   +tpf.shape[1])
 
     fig = plt.figure(figsize=( len(colnums)//2 , len(rownums)//2 ))
-    plt.imshow(afg,cmap='viridis',origin='lower')
+    plt.imshow(afg,cmap='copper',origin='lower')
 
     plt.xticks(np.arange(len(colnums)) , colnums)
     plt.yticks(np.arange(len(rownums)) , rownums)
@@ -905,7 +1000,7 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     plt.title("Aperture frequency grid",fontsize=20)
     plt.tight_layout()
 
-    if save_plots: plt.savefig(filename+'.png')
+    if save_plots: plt.savefig(filename+'.png',dpi=150)
     if show_plots: plt.show()
     plt.close(fig)
 
@@ -1062,7 +1157,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         raise ValueError('Campaign number must be integer, float or None')
 
     # --- Loop over each image and detect stars for each of them separatly ---
-    countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
+    countergrid_all, tpf, filterpassingpicsnum, campaignnum, psf_extrema = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
     # --- Add underscores to output filenames ---
     targettpf = str(targettpf).replace(' ','_')
@@ -1131,50 +1226,39 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             gapfilledaperturelist_initial = gapfilledaperturelist.copy()
 
         if save_plots or show_plots:
-            from itertools import cycle
-            fig = tpfplot(tpf,apindex,apertures,aps)
+            fig,axs = tpfplot_at_extrema(tpf,psf_extrema,apertures,aps)
 
-            colors=cycle(['black','yellow','green','blue','cyan','magenta','white'])
-            for i, (ithap,color) in enumerate( zip(gapfilledaperturelist,colors)  ):
+            for ithap in gapfilledaperturelist:
                 filtered=apdrawer(ithap*1)
                 for x in range(len(filtered)):
-                    plt.plot(filtered[x][0],filtered[x][1],c=color,linewidth=4)
+                    axs[0].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
+                    axs[1].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
 
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_iternum_'+str(iterationnum)+'.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_iteration_'+str(iterationnum)+'.png',dpi=200)
             if show_plots: plt.show()
             plt.close(fig)
 
         # ----------------------------
         # Perform photometry on each target
         # ----------------------------
-        fig,axs = plt.subplots(np.max(aps),1,figsize=(12,np.max(aps)*2),squeeze=False)
         lclist=[]
         for x in range(np.max(aps)):
             lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x])
             lclist.append(lc)
-
-            axs[x,0].plot( strip_quantity(lc.time) , strip_quantity(lc.flux) )
-            axs[x,0].title.set_text('Target '+str(x+1))
-            axs[x,0].set_xlabel('Time',fontsize=20)
-            axs[x,0].set_ylabel('Flux',fontsize=20)
-        plt.tight_layout()
-        if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_iternum_'+str(iterationnum)+'.png')
-        if show_plots: plt.show()
-        plt.close(fig)
 
         # --- Get index of variable star's aperture ---
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
 
         if save_plots or show_plots:
 
-            fig = plt.figure(figsize=(20,4))
+            fig = plt.figure(figsize=(12,5))
             plt.plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
             plt.xlabel('Time')
             plt.ylabel('Flux')
-            plt.title('The lc which is identified as a variable')
+            plt.title('The light curve of the variable star')
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_which_is_variable_iternum_'+str(iterationnum)+'.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_which_is_variable_iteration_'+str(iterationnum)+'.png',dpi=150)
             if show_plots: plt.show()
             plt.close(fig)
 
@@ -1211,7 +1295,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 print('Applying K2SC')
                 # --------------------
 
-                from autoeap.k2sc_stable import psearch,k2sc_lc
+                #from autoeap.k2sc_stable import psearch,k2sc_lc
 
                 lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
                 lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]

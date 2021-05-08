@@ -1295,7 +1295,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 print('Applying K2SC')
                 # --------------------
 
-                #from autoeap.k2sc_stable import psearch,k2sc_lc
+                from autoeap.k2sc_stable import psearch,k2sc_lc
 
                 lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
                 lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]

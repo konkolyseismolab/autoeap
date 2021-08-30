@@ -538,7 +538,7 @@ def pixelremoval(gapfilledaperturelist,variableindex):
     return removethesepixels
 
 
-def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,debug=False):
+def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,debug=False,already_checked_aperture=False):
     wehaveajump = False
     for apindex, nfeature in enumerate(numfeatureslist):
         if apindex>ROI[0] and apindex<ROI[1]:
@@ -570,7 +570,10 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,d
                     if debug: print('Backward jump found')
                     apindexfinal = apind
                     backward_jump = True
-            if backward_jump: apindex = apindexfinal
+            if backward_jump:
+                apindex = apindexfinal
+            elif not already_checked_aperture:
+                raise ValueError('Larger upper ROI might be needed')
             if np.sum(apertures)==0:
                 # if too few pixels remaining
                 apindex = int(countergrid_all.max()-1)
@@ -1185,8 +1188,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             numfeatureslist.append(num_features)
 
         # --- Separate stars and define one aperture for each star ---
-        ROI=[ROI_lower, len(tpf.flux)*ROI_upper]
-        apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
+        try:
+            ROI=[ROI_lower, len(tpf.flux)*ROI_upper]
+            apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
+        except ValueError:
+            if debug: print("Larger upper ROI might be needed! Checking...")
+            ROI=[ROI_lower, len(tpf.flux)*(ROI_upper+0.05)]
+            apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,
+                                                                    debug=debug,already_checked_aperture=True)
 
         if save_plots or show_plots:
             plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,targettpf,show_plots=show_plots,save_plots=save_plots)

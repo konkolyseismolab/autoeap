@@ -981,7 +981,9 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         # Update final lc with the newly extended one
         lclist[variableindex] = newfinallc
 
-    return lclist
+        return lclist, newmask
+
+    return lclist, gapfilledaperturelist[variableindex]
 
 
 def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
@@ -1298,11 +1300,27 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             # Optimizing final aperture by checking CDPP for different aperture sizes
             # -----------------------------------------------------------------------
             print('Optimizing final aperture')
-            lslist = optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,gapfilledaperturelist_initial,tpf,
-                                                targettpf=targettpf,
-                                                save_plots=save_plots,
-                                                show_plots=show_plots,
-                                                debug=debug)
+            lslist, finalmask = optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,
+                                                           gapfilledaperturelist_initial,tpf,
+                                                           targettpf=targettpf,
+                                                           save_plots=save_plots,
+                                                           show_plots=show_plots,
+                                                           debug=debug)
+
+            if save_plots or show_plots:
+                if show_plots: print("Final aperture:")
+                fig,axs = tpfplot_at_extrema(tpf,psf_extrema,apertures,None)
+
+                filtered=apdrawer(finalmask*1)
+                for x in range(len(filtered)):
+                    axs[0].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
+                    axs[1].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
+
+                plt.tight_layout()
+                if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_final_aperture.png',dpi=200)
+                if show_plots: plt.show()
+                plt.close(fig)
+
 
             if apply_K2SC:
                 # --------------------

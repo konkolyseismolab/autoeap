@@ -399,16 +399,21 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     # Subtract mean to find extrema
     psfc1good -= np.mean(psfc1good)
     psfc2good -= np.mean(psfc2good)
-    # Use points that are gt 0 to select right side maximum
-    um1 = np.where( psfc2good>0 )[0]
-    # Maximum is at where the distance from the origo is max
-    um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
-    psfmax1 = um[cut1:cut2][um1[um2]]
-    # Use points that are lt 0 to select left side maximum
-    um1 = np.where( psfc2good<0 )[0]
-    # Maximum is at where the distance from the origo is max
-    um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
-    psfmax2 = um[cut1:cut2][um1[um2]]
+    if not np.all(psfc2good==0):
+        # Use points that are gt 0 to select right side maximum
+        um1 = np.where( psfc2good>0 )[0]
+        # Maximum is at where the distance from the origo is max
+        um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
+        psfmax1 = um[cut1:cut2][um1[um2]]
+        # Use points that are lt 0 to select left side maximum
+        um1 = np.where( psfc2good<0 )[0]
+        # Maximum is at where the distance from the origo is max
+        um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
+        psfmax2 = um[cut1:cut2][um1[um2]]
+    else:
+        # if stars do not move by time selected random TPFs to plot
+        psfmax1 = int(0.1*len(psfc1good))
+        psfmax2 = int(0.9*len(psfc1good))
 
     if save_plots or show_plots:
         fig = plt.figure(figsize=(7,5))

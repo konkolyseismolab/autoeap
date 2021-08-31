@@ -1062,7 +1062,7 @@ def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
 
     return splinedLC, trendLC
 
-def outlier_correction_before_k2sc(lc,outlier_ratio=2.0):
+def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
     try:
          # --- Use POS_CORR if possible ---
         x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
@@ -1083,7 +1083,13 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0):
             x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
             nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
 
+    if force_pos_corr:
+        x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
+        nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
+
     lc = lc.copy()[nm]
+    lc.pos_corr1 = lc.pos_corr1[nm]
+    lc.pos_corr2 = lc.pos_corr2[nm]
 
     return lc
 
@@ -1384,6 +1390,27 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     # No useful POS_COR or Centroid points (probably Campaign 101)
                     warnings.warn('No useful POS_COR or Centroid points (probably Campaign 101)\nReturning raw EAP photometry!',
                                   LightkurveWarning)
+
+                # If MAD after K2SC is very low (variation removed) or too high (outliers) force POS_CORR instead
+                if debug: print('MAD:',median_abs_deviation(lclist[variableindex].flux) , median_abs_deviation(lclist[variableindex].corr_flux) )
+                if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.5*median_abs_deviation(lclist[variableindex].flux) or \
+                    median_abs_deviation(lclist[variableindex].corr_flux) > 2.*median_abs_deviation(lclist[variableindex].flux)) \
+                    and hasattr(lclist[variableindex],'tr_time'):
+
+                    lcbackup = lclist[variableindex].copy()
+
+                    lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio,force_pos_corr=True)
+                    try:
+                        lclist[variableindex].k2sc(campaign=campaignnum,
+                                           kernel='quasiperiodic',
+                                           kernel_period=period,
+                                           outlier_ratio=outlier_ratio,
+                                           force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError:
+                        lclist[variableindex] = lcbackup
+
+                    finally:
+                        del lcbackup
 
                 # --- Removing outliers before saving light curve (or removing spline) ---
                 lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)

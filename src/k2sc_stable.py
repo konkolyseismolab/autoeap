@@ -298,7 +298,7 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
     lc.k2sc()
     '''
 
-    def get_k2data(self,outlier_ratio=2.0):
+    def get_k2data(self,outlier_ratio=2.0,force_pos_corr=False):
         try:
             # --- Use POS_CORR if possible ---
             goodposcorr = None
@@ -316,6 +316,9 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
             if goodposcorr is not None and np.sum(np.isfinite(x) & np.isfinite(y)) == goodposcorr:
                 x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
 
+        if force_pos_corr:
+            x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
+
         dataset = K2Data(self.targetid,
                       time    = strip_quantity(self.time),
                       cadence = strip_quantity(self.cadenceno),
@@ -329,10 +332,10 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
                       campaign       = self.campaign)
         return dataset
 
-    def k2sc(self,outlier_ratio=2.0,**kwargs):
+    def k2sc(self,outlier_ratio=2.0,force_pos_corr=False,**kwargs):
         from astropy.units import UnitConversionError
 
-        dataset = self.get_k2data(outlier_ratio=outlier_ratio)
+        dataset = self.get_k2data(outlier_ratio=outlier_ratio,force_pos_corr=force_pos_corr)
         results = detrend(dataset,**kwargs) # see keyword arguments from detrend above
 
         if results == 0:

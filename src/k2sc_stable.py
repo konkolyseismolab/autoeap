@@ -2,7 +2,6 @@
 
 from astropy.units.quantity import Quantity
 from astropy.time.core import Time
-from scipy.stats import median_abs_deviation
 
 def strip_quantity(data):
     if isinstance(data, Quantity) or isinstance(data, Time):
@@ -348,19 +347,11 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
                 self.tr_position = results.tr_position
                 self.tr_time = results.tr_time
                 self.pv = results.pv # hyperparameters
-                if median_abs_deviation(self.tr_position) > median_abs_deviation(self.tr_time):
-                    self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
-                else:
-                    # sometimes tr_position is exchanged with tr_time...
-                    self.corr_flux = self.flux - self.tr_time + np.nanmedian(self.tr_time)
+                self.corr_flux = self.flux - self.tr_position + np.nanmedian(self.tr_position)
 
             except UnitConversionError:
                 unit = self.flux.unit
 
                 self['tr_position'] = results.tr_position
                 self['tr_time'] = results.tr_time
-                if median_abs_deviation(self.tr_position) > median_abs_deviation(self.tr_time):
-                    self['corr_flux'] = self.flux - self.tr_position*unit + np.nanmedian(self.tr_position)*unit
-                else:
-                    # sometimes tr_position is exchanged with tr_time...
-                    self['corr_flux'] = self.flux - self.tr_time*unit + np.nanmedian(self.tr_time)*unit
+                self['corr_flux'] = self.flux - self.tr_position*unit + np.nanmedian(self.tr_position)*unit

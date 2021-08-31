@@ -741,6 +741,9 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     fig,axs = plt.subplots(nrows,2,figsize=(24,2*nrows),squeeze=False)
     for ii,lc in enumerate(lclist):
 
+        # Get rid of distant outliers
+        lc = lc.remove_outliers(sigma=10).remove_nans()
+
         # First, remove a trend
         ls =  LombScargle(lc.time, lc.flux)
         frequency, power = ls.autopower(normalization='psd',
@@ -877,19 +880,27 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         cdpp_ij_list.append( [ii,jj] )
 
         if debug:
+            lc2plot = lclist[variableindex].copy()
+            lc2plot = lc2plot.remove_outliers(10).remove_nans()
+            lc2plot2 = newlc.copy()
+            lc2plot2 = lc2plot2.remove_outliers(10).remove_nans()
+
             fig,axs = plt.subplots(2,1,figsize=(20,8))
-            axs[0].plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
+            axs[0].plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
             axs[0].set_xlabel('Time')
             axs[0].set_ylabel('Flux')
             axs[0].set_title('The light curve of the variable star')
 
-            axs[1].plot( strip_quantity(newlc.time) , strip_quantity(newlc.flux) ,c='k')
+            axs[1].plot( strip_quantity(lc2plot2.time) , strip_quantity(lc2plot2.flux) ,c='k')
             axs[1].set_xlabel('Time')
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The light curve after adding +1 pixel adjacent pixels')
             plt.tight_layout()
             if show_plots: plt.show()
             plt.close(fig)
+
+            del lc2plot
+            del lc2plot2
 
     cdpp_list = np.array(cdpp_list)
     if debug:
@@ -954,13 +965,18 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         del lcall
 
         if save_plots or show_plots:
+            lc2plot = lclist[variableindex].copy()
+            lc2plot = lc2plot.remove_outliers(10).remove_nans()
+            lc2plot2 = newfinallc.copy()
+            lc2plot2 = lc2plot2.remove_outliers(10).remove_nans()
+
             fig,axs = plt.subplots(2,1,figsize=(20,8))
-            axs[0].plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
+            axs[0].plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
             axs[0].set_xlabel('Time')
             axs[0].set_ylabel('Flux')
             axs[0].set_title('The light curve of the variable star')
 
-            axs[1].plot( strip_quantity(newfinallc.time) ,strip_quantity(newfinallc.flux) ,c='k')
+            axs[1].plot( strip_quantity(lc2plot2.time) ,strip_quantity(lc2plot2.flux) ,c='k')
             axs[1].set_xlabel('Time')
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The lc after aperture size optimization')
@@ -968,6 +984,9 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_after_CDPP_correction.png')
             if show_plots: plt.show()
             plt.close(fig)
+
+            del lc2plot
+            del lc2plot2
 
             fig = tpfplot(tpf,0,initialmask,None)
             filtered=apdrawer(newmask*1)
@@ -1275,9 +1294,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
 
         if save_plots or show_plots:
+            lc2plot = lclist[variableindex].copy()
+            lc2plot = lc2plot.remove_outliers(10).remove_nans()
 
             fig = plt.figure(figsize=(12,5))
-            plt.plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
+            plt.plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
             plt.xlabel('Time')
             plt.ylabel('Flux')
             plt.title('The light curve of the variable star')
@@ -1285,6 +1306,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_which_is_variable_iteration_'+str(iterationnum)+'.png',dpi=150)
             if show_plots: plt.show()
             plt.close(fig)
+
+            del lc2plot
 
         if extensionprospects:
             # ------------------------------------------------------

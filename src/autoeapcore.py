@@ -948,6 +948,10 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         newmask[gapfilledaperturelist[variableindex]] = True
 
         newfinallc = tpf.to_lightcurve(aperture_mask=newmask)
+        lcall = tpf.to_lightcurve(aperture_mask='all')
+        newfinallc.centroid_col = lcall.centroid_col
+        newfinallc.centroid_row = lcall.centroid_row
+        del lcall
 
         if save_plots or show_plots:
             fig,axs = plt.subplots(2,1,figsize=(20,8))
@@ -1259,9 +1263,13 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         # Perform photometry on each target
         # ----------------------------
         lclist=[]
+        lcall = tpf.to_lightcurve(aperture_mask='all')
         for x in range(np.max(aps)):
             lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x])
+            lc.centroid_col = lcall.centroid_col
+            lc.centroid_row = lcall.centroid_row
             lclist.append(lc)
+        del lcall
 
         # --- Get index of variable star's aperture ---
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)

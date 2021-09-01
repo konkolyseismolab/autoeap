@@ -1414,7 +1414,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 # If MAD after K2SC is very low (variation removed) or too high (outliers) force POS_CORR instead
                 if debug: print('MAD:',median_abs_deviation(lclist[variableindex].flux) , median_abs_deviation(lclist[variableindex].corr_flux) )
-                if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.5*median_abs_deviation(lclist[variableindex].flux) or \
+                if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.6*median_abs_deviation(lclist[variableindex].flux) or \
                     median_abs_deviation(lclist[variableindex].corr_flux) > 2.*median_abs_deviation(lclist[variableindex].flux)) \
                     and hasattr(lclist[variableindex],'tr_time') and not forced_K2SC:
 

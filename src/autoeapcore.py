@@ -1382,10 +1382,30 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                     max_p=strip_quantity(lclist[variableindex].time).ptp()/2)
                 print('Proposed period for periodic kernel is %.2f' % period)
 
-                lclist[variableindex].k2sc(campaign=campaignnum,
-                                       kernel='quasiperiodic',
-                                       kernel_period=period,
-                                       outlier_ratio=outlier_ratio, **kwargs)
+                try:
+                    # Apply K2SC
+                    forced_K2SC = False
+                    lclist[variableindex].k2sc(campaign=campaignnum,
+                                           kernel='quasiperiodic',
+                                           kernel_period=period,
+                                           outlier_ratio=outlier_ratio, **kwargs)
+                except np.linalg.LinAlgError:
+                    try:
+                        # If K2SC fails, force the usage of POS_CORR w/ usually less useful points
+                        forced_K2SC = True
+                        lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],
+                                                                               outlier_ratio=outlier_ratio,force_pos_corr=True)
+                        lclist[variableindex].k2sc(campaign=campaignnum,
+                                           kernel='quasiperiodic',
+                                           kernel_period=period,
+                                           outlier_ratio=outlier_ratio,
+                                           force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError:
+                        warnings.warn('K2SC failed! Returning raw EAP photometry!',
+                                      LightkurveWarning)
+
+                        lclist[variableindex].corr_flux = lclist[variableindex].flux
+
                 if not hasattr(lclist[variableindex],'tr_time'):
                     from lightkurve.utils import LightkurveWarning
                     # No useful POS_COR or Centroid points (probably Campaign 101)
@@ -1396,7 +1416,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 if debug: print('MAD:',median_abs_deviation(lclist[variableindex].flux) , median_abs_deviation(lclist[variableindex].corr_flux) )
                 if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.5*median_abs_deviation(lclist[variableindex].flux) or \
                     median_abs_deviation(lclist[variableindex].corr_flux) > 2.*median_abs_deviation(lclist[variableindex].flux)) \
-                    and hasattr(lclist[variableindex],'tr_time'):
+                    and hasattr(lclist[variableindex],'tr_time') and not forced_K2SC:
 
                     lcbackup = lclist[variableindex].copy()
 

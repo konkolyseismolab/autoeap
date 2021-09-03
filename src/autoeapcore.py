@@ -1422,16 +1422,27 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                     lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio,force_pos_corr=True)
                     try:
+                        # Apply K2SC
                         lclist[variableindex].k2sc(campaign=campaignnum,
                                            kernel='quasiperiodic',
                                            kernel_period=period,
                                            outlier_ratio=outlier_ratio,
                                            force_pos_corr=True, **kwargs)
-                    except np.linalg.LinAlgError:
-                        lclist[variableindex] = lcbackup
+                    except np.linalg.LinAlgError as err:
+                        # If still "leading minor not positive definite" reduce DE time
+                        try:
+                            lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               outlier_ratio=outlier_ratio,
+                                               force_pos_corr=True,
+                                               de_max_time=1, **kwargs)
+                        except:
+                            lclist[variableindex] = lcbackup
 
                     finally:
                         del lcbackup
+
 
                 # --- Removing outliers before saving light curve (or removing spline) ---
                 lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)

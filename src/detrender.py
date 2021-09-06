@@ -7,6 +7,7 @@ from scipy.optimize import minimize
 from wotan import flatten
 from astropy.stats import sigma_clip
 import sys, os
+import warnings
 
 __all__ = ['detrend_wrt_PDM']
 

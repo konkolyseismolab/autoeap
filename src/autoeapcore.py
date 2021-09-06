@@ -452,8 +452,8 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
 
     print('Optimizing apertures for each cadence')
     # --- Segment targets for each cadence ---
-    countergrid_all = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
-    mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
+    countergrid_all = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=int)
+    mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
         with warnings.catch_warnings(record=True) as w:
@@ -836,8 +836,8 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
     initialcdpp = strip_quantity(lclist[variableindex].estimate_cdpp())
     print('Initial CDPP=',  initialcdpp)
 
-    #initialmaskall = np.sum(initialmask, axis=0, dtype=np.bool)
-    initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
+    #initialmaskall = np.sum(initialmask, axis=0, dtype=bool)
+    initialmask = np.sum(initialmask, axis=0, dtype=bool)
     #initialmask = gapfilledaperturelist[variableindex]
 
     # Append 1-pixel-width corona to aperture
@@ -856,7 +856,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             # Do not check again the already existing mask
             continue
 
-        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        newmask = np.full_like(newcorona,False,dtype=bool)
         newmask[gapfilledaperturelist[variableindex]] = True
         newmask_nocorona = newmask.copy()
         newmask[ ii,jj ] = True
@@ -937,7 +937,7 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
             iadj = umcorona[0][adjpix]
             jadj = umcorona[1][adjpix]
 
-            newmask = np.full_like(newcorona,False,dtype=np.bool)
+            newmask = np.full_like(newcorona,False,dtype=bool)
             newmask[ iadj,jadj ] = True
             newmask[ i0,j0 ] = True
             newmask[gapfilledaperturelist[variableindex]] = True
@@ -949,13 +949,13 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
                 if debug: print('Adding another pixel to new aperture with new cdpp=',lccdpp)
                 newmask_pixels.append([iadj,jadj])
 
-        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        newmask = np.full_like(newcorona,False,dtype=bool)
         for (ii,jj) in newmask_pixels:
             newmask[ ii,jj ] = True
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True
 
-        newmask = apgapfilling(newmask).astype(np.bool)
+        newmask = apgapfilling(newmask).astype(bool)
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True
 
@@ -1038,31 +1038,6 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     if show_plots: plt.show()
     plt.close(fig)
 
-def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
-    from wotan import flatten,slide_clip
-    from numpy import nanmean
-
-    clipped_flux = slide_clip(time,flux,
-        window_length=window_length,
-        low=sigma_lower,
-        high=sigma_upper,
-        method='mad',
-        center='median'
-        )
-
-    splinedLC, trendLC = flatten(time, clipped_flux,
-                            method='rspline',
-                            window_length=window_length,
-                            return_trend=True,
-                            break_tolerance=0,
-                            edge_cutoff=False)
-
-    # Contamination is additive, must be subtracted!
-    splinedLC = flux-trendLC
-    splinedLC += nanmean(flux)
-
-    return splinedLC, trendLC
-
 def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
     try:
          # --- Use POS_CORR if possible ---
@@ -1100,7 +1075,7 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
-                        window_length=20, sigma_lower=3, sigma_upper=3,
+                        polyorder=9, sigma_detrend=10,
                         outlier_ratio=2.0,
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
@@ -1133,15 +1108,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         If `True` all the plots will be displayed.
     save_plots: bool, default: False
         If `True` all the plots will be saved to a subdirectory.
-    window_length: int or float, default: 20
-        The length of filter window for spline correction given in days. Applies
-        only if ``remove_spline`` is `True`.
-    sigma_lower: int or float, default: 3
-        The number of standard deviations to use as the lower bound for sigma
-        clipping limit before spline correction. Applies only
+    polyorder : int, default: 9
+        The order of the detrending polynomial. Applies only
         if ``remove_spline`` is `True`.
-    sigma_upper: int or float, default: 3
-        The number of standard deviations to use as the upper bound for sigma
+    sigma_detrend: float, default: 10
+        The number of standard deviations to use for sigma
         clipping limit before spline correction. Applies only
         if ``remove_spline`` is `True`.
     outlier_ratio: float, default: 2
@@ -1374,7 +1345,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
-                lclist[variableindex].__class__ = k2sc_lc
+                with warnings.catch_warnings(record=True) as w:
+                    lclist[variableindex].__class__ = k2sc_lc
 
                 period, fap = psearch( strip_quantity(lclist[variableindex].time) ,
                                     strip_quantity(lclist[variableindex].flux),
@@ -1385,21 +1357,23 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 try:
                     # Apply K2SC
                     forced_K2SC = False
-                    lclist[variableindex].k2sc(campaign=campaignnum,
-                                           kernel='quasiperiodic',
-                                           kernel_period=period,
-                                           outlier_ratio=outlier_ratio, **kwargs)
+                    with warnings.catch_warnings(record=True) as w:
+                        lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               outlier_ratio=outlier_ratio, **kwargs)
                 except np.linalg.LinAlgError:
                     try:
                         # If K2SC fails, force the usage of POS_CORR w/ usually less useful points
                         forced_K2SC = True
                         lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],
                                                                                outlier_ratio=outlier_ratio,force_pos_corr=True)
-                        lclist[variableindex].k2sc(campaign=campaignnum,
-                                           kernel='quasiperiodic',
-                                           kernel_period=period,
-                                           outlier_ratio=outlier_ratio,
-                                           force_pos_corr=True, **kwargs)
+                        with warnings.catch_warnings(record=True) as w:
+                            lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               outlier_ratio=outlier_ratio,
+                                               force_pos_corr=True, **kwargs)
                     except np.linalg.LinAlgError:
                         warnings.warn('K2SC failed! Returning raw EAP photometry!',
                                       LightkurveWarning)
@@ -1423,20 +1397,22 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio,force_pos_corr=True)
                     try:
                         # Apply K2SC
-                        lclist[variableindex].k2sc(campaign=campaignnum,
-                                           kernel='quasiperiodic',
-                                           kernel_period=period,
-                                           outlier_ratio=outlier_ratio,
-                                           force_pos_corr=True, **kwargs)
-                    except np.linalg.LinAlgError as err:
-                        # If still "leading minor not positive definite" reduce DE time
-                        try:
+                        with warnings.catch_warnings(record=True) as w:
                             lclist[variableindex].k2sc(campaign=campaignnum,
                                                kernel='quasiperiodic',
                                                kernel_period=period,
                                                outlier_ratio=outlier_ratio,
-                                               force_pos_corr=True,
-                                               de_max_time=1, **kwargs)
+                                               force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError as err:
+                        # If still "leading minor not positive definite" reduce DE time
+                        try:
+                            with warnings.catch_warnings(record=True) as w:
+                                lclist[variableindex].k2sc(campaign=campaignnum,
+                                                   kernel='quasiperiodic',
+                                                   kernel_period=period,
+                                                   outlier_ratio=outlier_ratio,
+                                                   force_pos_corr=True,
+                                                   de_max_time=1, **kwargs)
                         except:
                             lclist[variableindex] = lcbackup
 
@@ -1462,12 +1438,16 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 if remove_spline:
                     # --- Remove spline from K2SC corrected light curve ---
                     print('Removing spline')
+                    from autoeap.detrender import detrend_wrt_PDM
 
-                    splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time),
-                                                        strip_quantity(lclist[variableindex].corr_flux),
-                                                        window_length=window_length,
-                                                        sigma_lower=sigma_lower,
-                                                        sigma_upper=sigma_upper)
+                    splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time),
+                                                    strip_quantity(lclist[variableindex].corr_flux),
+                                                    strip_quantity(lclist[variableindex].flux_err),
+                                                    polyorder=polyorder,
+                                                    sigma=sigma_detrend,
+                                                    show_plots=show_plots,
+                                                    save_plots=save_plots,
+                                                    debug=debug)
 
                     if save_lc:
                         # --- Save K2SC + spline corrected light curve ---
@@ -1500,11 +1480,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     if remove_spline:
         # --- Remove spline from raw light curve ---
+        from autoeap.detrender import detrend_wrt_PDM
         print('Removing spline')
-        splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux) ,
-                                        window_length=window_length,
-                                        sigma_lower=sigma_lower,
-                                        sigma_upper=sigma_upper)
+
+        splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time),
+                                        strip_quantity(lclist[variableindex].flux),
+                                        strip_quantity(lclist[variableindex].flux_err),
+                                        polyorder=polyorder,
+                                        sigma=sigma_detrend,
+                                        show_plots=show_plots,
+                                        save_plots=save_plots,
+                                        debug=debug)
 
         if save_lc:
             # --- Save spline corrected raw light curve ---
@@ -1561,23 +1547,18 @@ def autoeap_from_commandline(args=None):
                            action='store_true',
                            help='After the raw or K2SC photomery, remove a '
                                 'low-order spline from the extracted light curve.')
-    parser.add_argument('--windowlength',
-                           metavar='<window-length-in-days>', type=float, default=20,
-                           help='The length of filter window for spline correction '
-                                'given in days. Default is 20 days.')
-    parser.add_argument('--sigmalower',
-                           metavar='<sigma-lower>', type=float, default=3,
-                           help='The number of standard deviations to use '
-                                'as the lower bound for sigma clipping limit '
-                                'before spline correction. Default is 3.')
-    parser.add_argument('--sigmaupper',
-                           metavar='<sigma-upper>', type=float, default=3,
-                           help='The number of standard deviations to use '
-                                'as the upper bound for sigma clipping limit '
-                                'before spline correction. Default is 3.')
+    parser.add_argument('--polyorder',
+                           metavar='<detrending-polynomial-order>', type=int, default=9,
+                           help='The order of the detrending polynomial. '
+                                'Default is 9.')
+    parser.add_argument('--sigmadetrend',
+                           metavar='<detrending-sigma-limit>', type=float, default=10.0,
+                           help='The number of standard deviations to use for sigma '
+                                'clipping limit before spline correction. '
+                                'Default is 10.0')
     parser.add_argument('--outlierratio',
                            metavar='<outlier-ratio>', type=float, default=2.0,
-                           help='Missing value threshold in % below which '
+                           help='Missing value threshold in percent below which '
                                 'position correction values (POS_CORR) are '
                                 'used for K2SC. Missing POS_CORR values will '
                                 'reduce the light curve points! Otherwise, '
@@ -1608,16 +1589,14 @@ def autoeap_from_commandline(args=None):
 
     args = parser.parse_args(args)
 
-
     _ = createlightcurve(args.targettpf,
                     apply_K2SC=args.applyK2SC,
                     remove_spline=args.removespline,
                     save_lc=True,
                     campaign=args.campaign,
                     save_plots=args.saveplots,
-                    window_length=args.windowlength,
-                    sigma_lower=args.sigmalower,
-                    sigma_upper=args.sigmaupper,
+                    polyorder=args.polyorder,
+                    sigma_detrend=args.sigmadetrend,
                     outlier_ratio=args.outlierratio,
                     TH=args.TH,
                     ROI_lower=args.ROIlower,

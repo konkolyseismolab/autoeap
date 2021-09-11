@@ -313,7 +313,6 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
 
 def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     """Loop over each image and detect stars for each of them separatly"""
-    import os
 
     from sklearn.cluster import DBSCAN
     import matplotlib.gridspec as gridspec
@@ -425,7 +424,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         ax2 = plt.subplot(gs[1:, 0])
 
         cb = ax0.scatter(psfc1,psfc2,s=5,c=strip_quantity( tpf.time ),cmap='copper')
-        ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=5,c='r',marker='x')
+        ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=50,c='r',marker='x')
         ax0.yaxis.tick_right()
         ax0.yaxis.set_label_position("right")
         ax0.set_xlabel('PSF CENTR1')
@@ -433,7 +432,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
 
         ax1x = ax1.twinx()
         ax1x.scatter( strip_quantity(tpf.time) ,psfc1,s=5,c=strip_quantity( tpf.time ),cmap='copper')
-        ax1x.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=5,c='r',marker='x')
+        ax1x.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=50,c='r',marker='x')
         ax1x.set_ylabel('PSF CENTR1')
         ax1.set_xlabel('BJD')
         ax1.xaxis.tick_top()
@@ -441,7 +440,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         ax1.set_yticks([])
 
         ax2.scatter(psfc2, strip_quantity(tpf.time) ,s=5,c=strip_quantity( tpf.time ),cmap='copper')
-        ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=5,c='r',marker='x')
+        ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=50,c='r',marker='x')
         ax2.set_ylabel('BJD')
         ax2.tick_params(axis='x', rotation=45)
         ax2.set_xlabel('PSF CENTR2')

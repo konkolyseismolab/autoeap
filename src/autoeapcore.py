@@ -427,23 +427,23 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=50,c='r',marker='x')
         ax0.yaxis.tick_right()
         ax0.yaxis.set_label_position("right")
-        ax0.set_xlabel('PSF CENTR1')
-        ax0.set_ylabel('PSF CENTR2')
+        ax0.set_xlabel('PSF CENTER1')
+        ax0.set_ylabel('PSF CENTER2')
 
         ax1x = ax1.twinx()
         ax1x.scatter( strip_quantity(tpf.time) ,psfc1,s=5,c=strip_quantity( tpf.time ),cmap='copper')
         ax1x.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=50,c='r',marker='x')
-        ax1x.set_ylabel('PSF CENTR1')
-        ax1.set_xlabel('BJD')
+        ax1x.set_ylabel('PSF CENTER1')
+        ax1.set_xlabel('Time - 2454833 [BKJD days]')
         ax1.xaxis.tick_top()
         ax1.xaxis.set_label_position('top')
         ax1.set_yticks([])
 
         ax2.scatter(psfc2, strip_quantity(tpf.time) ,s=5,c=strip_quantity( tpf.time ),cmap='copper')
         ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=50,c='r',marker='x')
-        ax2.set_ylabel('BJD')
+        ax2.set_ylabel('Time - 2454833 [BKJD days]')
         ax2.tick_params(axis='x', rotation=45)
-        ax2.set_xlabel('PSF CENTR2')
+        ax2.set_xlabel('PSF CENTER2')
         ax2.xaxis.set_label_position("top")
         if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png',dpi=150)
         if show_plots: plt.show()
@@ -777,7 +777,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         # --- Plot light curve ---
         axs[ii,0].plot( strip_quantity(lc.time) , strip_quantity(lc.flux) )
         axs[ii,0].title.set_text('Target '+str(ii+1))
-        axs[ii,0].set_xlabel('Time')
+        axs[ii,0].set_xlabel('Time - 2454833 [BKJD days]')
         axs[ii,0].set_ylabel('Flux')
 
         with warnings.catch_warnings(record=True) as w:
@@ -887,14 +887,14 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
 
             fig,axs = plt.subplots(2,1,figsize=(20,8))
             axs[0].plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
-            axs[0].set_xlabel('Time')
+            axs[0].set_xlabel('Time - 2454833 [BKJD days]')
             axs[0].set_ylabel('Flux')
             axs[0].set_title('The light curve of the variable star')
 
             axs[1].plot( strip_quantity(lc2plot2.time) , strip_quantity(lc2plot2.flux) ,c='k')
-            axs[1].set_xlabel('Time')
+            axs[1].set_xlabel('Time - 2454833 [BKJD days]')
             axs[1].set_ylabel('Flux')
-            axs[1].set_title('The light curve after adding +1 pixel adjacent pixels')
+            axs[1].set_title('The light curve after adding +1 adjacent pixel')
             plt.tight_layout()
             if show_plots: plt.show()
             plt.close(fig)
@@ -968,12 +968,12 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
 
             fig,axs = plt.subplots(2,1,figsize=(20,8))
             axs[0].plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
-            axs[0].set_xlabel('Time')
+            axs[0].set_xlabel('Time - 2454833 [BKJD days]')
             axs[0].set_ylabel('Flux')
             axs[0].set_title('The light curve of the variable star')
 
             axs[1].plot( strip_quantity(lc2plot2.time) ,strip_quantity(lc2plot2.flux) ,c='k')
-            axs[1].set_xlabel('Time')
+            axs[1].set_xlabel('Time - 2454833 [BKJD days]')
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The lc after aperture size optimization')
             plt.tight_layout()
@@ -1268,7 +1268,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
             fig = plt.figure(figsize=(12,5))
             plt.plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
-            plt.xlabel('Time')
+            plt.xlabel('Time - 2454833 [BKJD days]')
             plt.ylabel('Flux')
             plt.title('The light curve of the variable star')
             plt.tight_layout()
@@ -1419,7 +1419,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     fig = plt.figure(figsize=(20,4))
                     plt.plot( strip_quantity(lclist[variableindex].time) ,lclist[variableindex].corr_flux)
                     plt.title('K2SC corrected lc for '+targettpf)
-                    plt.xlabel('Time')
+                    plt.xlabel('Time - 2454833 [BKJD days]')
                     plt.ylabel('Flux')
                     plt.tight_layout()
                     if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_k2sc_lc_plot.png')
@@ -1431,7 +1431,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     print('Removing spline')
                     from autoeap.detrender import detrend_wrt_PDM
 
-                    splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time),
+                    splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time)+2454833,
                                                     strip_quantity(lclist[variableindex].corr_flux),
                                                     strip_quantity(lclist[variableindex].flux_err),
                                                     polyorder=polyorder,
@@ -1450,7 +1450,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc_spline.lc',overwrite=True)
 
                     print('Done')
-                    return strip_quantity(lclist[variableindex].time), splinedLC, strip_quantity(lclist[variableindex].flux_err)
+                    return strip_quantity(lclist[variableindex].time)+2454833, splinedLC, strip_quantity(lclist[variableindex].flux_err)
 
                 if save_lc:
                     # --- Save K2SC corrected light curve ---
@@ -1462,7 +1462,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 print('Done')
 
-                return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].corr_flux), strip_quantity(lclist[variableindex].flux_err)
+                return strip_quantity(lclist[variableindex].time)+2454833, strip_quantity(lclist[variableindex].corr_flux), strip_quantity(lclist[variableindex].flux_err)
 
             break
 
@@ -1474,7 +1474,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         from autoeap.detrender import detrend_wrt_PDM
         print('Removing spline')
 
-        splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time),
+        splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time)+2454833,
                                         strip_quantity(lclist[variableindex].flux),
                                         strip_quantity(lclist[variableindex].flux_err),
                                         polyorder=polyorder,
@@ -1493,7 +1493,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         print('Done')
 
-        return strip_quantity(lclist[variableindex].time), splinedLC, strip_quantity(lclist[variableindex].flux_err)
+        return strip_quantity(lclist[variableindex].time)+2454833, splinedLC, strip_quantity(lclist[variableindex].flux_err)
 
     if save_lc:
         # --- Save raw light curve ---
@@ -1504,7 +1504,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     print('Done')
 
-    return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux), strip_quantity(lclist[variableindex].flux_err)
+    return strip_quantity(lclist[variableindex].time)+2454833, strip_quantity(lclist[variableindex].flux), strip_quantity(lclist[variableindex].flux_err)
 
 
 #########################

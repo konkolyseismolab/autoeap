@@ -191,18 +191,18 @@ def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder=9,sigma=10,show_plots=
     ax4 = plt.subplot(gs[2,1])
 
     ax1.set_title('Black: inital polinomial -- Red: final polynomial')
-    ax1.scatter(x+meanx-2457300,y+meany,s=4,c=x,cmap='copper')
-    ax1.plot(x+meanx-2457300,  np.poly1d(np.polyfit(x,y,polyorder))(x) +meany,'k')
+    ax1.scatter(x+meanx-2454833,y+meany,s=4,c=x,cmap='copper')
+    ax1.plot(x+meanx-2454833,  np.poly1d(np.polyfit(x,y,polyorder))(x) +meany,'k')
 
-    ax1.plot(x+meanx-2457300, np.poly1d(np.append(res.x,const))(x) +meany,'r' )
+    ax1.plot(x+meanx-2454833, np.poly1d(np.append(res.x,const))(x) +meany,'r' )
     ax1.grid()
     ax1.set_ylabel('Flux')
 
     ax2.set_title('Corrected light curve')
-    ax2.scatter(x+meanx-2457300, y-np.poly1d(np.append(res.x,const))(x) +meany,s=4,c=x,cmap='copper'  )
+    ax2.scatter(x+meanx-2454833, y-np.poly1d(np.append(res.x,const))(x) +meany,s=4,c=x,cmap='copper'  )
     ax2.grid()
     ax2.set_ylabel('Flux')
-    ax2.set_xlabel('BJD - 2457300')
+    ax2.set_xlabel('Time - 2454833 [BKJD days]')
 
     ax3.set_title('Original')
     ax3.scatter( (x*testf)%1, y+meany, c=x, s=4,cmap='copper')

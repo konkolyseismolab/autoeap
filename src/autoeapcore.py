@@ -286,7 +286,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     fig = plt.figure(figsize=( len(colnums)//2,len(rownums)//2 ))
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.imshow(np.log(20+ strip_quantity(tpf.flux[cadence]) ),cmap='viridis',origin='lower')
+        plt.imshow(np.log10(20+ strip_quantity(tpf.flux[cadence]) ),cmap='viridis',origin='lower')
 
     ax=plt.gca()
 
@@ -595,7 +595,7 @@ def tpfplot(tpf,apindex,apertures,aps):
     plt.title('Frame: '+str(apindex),fontsize=20)
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindex]) ), cmap='viridis')
+        plt.pcolormesh(np.log10(20+ strip_quantity(tpf.flux[apindex]) ), cmap='viridis')
 
     filtered=apdrawer(apertures*1)
     for x in range(len(filtered)):
@@ -636,8 +636,8 @@ def tpfplot_at_extrema(tpf,apindexes,apertures,aps):
     axs[1].set_title('Frame: '+str(apindexes[1]))
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        axs[0].pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindexes[0]]) ), cmap='viridis')
-        cb = axs[1].pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindexes[1]]) ), cmap='viridis')
+        axs[0].pcolormesh(np.log10(20+ strip_quantity(tpf.flux[apindexes[0]]) ), cmap='viridis')
+        cb = axs[1].pcolormesh(np.log10(20+ strip_quantity(tpf.flux[apindexes[1]]) ), cmap='viridis')
 
     plt.colorbar(cb, cax = axcbar, label='log(Calibrated Flux)')
 

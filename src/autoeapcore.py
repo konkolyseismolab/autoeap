@@ -526,7 +526,7 @@ def plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,eachfi
 
     plt.axvspan(ROI[0], ROI[1], alpha=0.3, color='gray')
 
-    plt.xlabel('Threshold of selected number of pixels')
+    plt.xlabel('Threshold of how many times a pixel has been selected')
     plt.ylabel('# of identified stars in the AFG')
 
     plt.tight_layout()
@@ -1035,7 +1035,7 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
 
 def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
     try:
-         # --- Use POS_CORR if possible ---
+        # --- Use POS_CORR if possible ---
         x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
         nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
 

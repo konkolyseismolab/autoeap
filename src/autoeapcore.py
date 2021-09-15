@@ -1339,7 +1339,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
                 lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
 
-                lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr)
+                lclist[variableindex],pos_corr_used = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr)
 
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
@@ -1354,7 +1354,6 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 try:
                     # Apply K2SC
-                    forced_K2SC = False
                     with warnings.catch_warnings(record=True) as w:
                         lclist[variableindex].k2sc(campaign=campaignnum,
                                                kernel='quasiperiodic',
@@ -1363,8 +1362,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 except np.linalg.LinAlgError:
                     try:
                         # If K2SC fails, force the usage of POS_CORR w/ usually less useful points
-                        forced_K2SC = True
-                        lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],
+                        lclist[variableindex],pos_corr_used = outlier_correction_before_k2sc(lclist[variableindex],
                                                                                max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
                         with warnings.catch_warnings(record=True) as w:
                             lclist[variableindex].k2sc(campaign=campaignnum,
@@ -1387,12 +1385,12 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 # If MAD after K2SC is very low (variation removed) or too high (outliers) force POS_CORR instead
                 if debug: print('MAD:',median_abs_deviation(lclist[variableindex].flux) , median_abs_deviation(lclist[variableindex].corr_flux) )
                 if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.6*median_abs_deviation(lclist[variableindex].flux) or \
-                    median_abs_deviation(lclist[variableindex].corr_flux) > 2.*median_abs_deviation(lclist[variableindex].flux)) \
-                    and hasattr(lclist[variableindex],'tr_time') and not forced_K2SC:
+                    median_abs_deviation(lclist[variableindex].corr_flux) > 1.5*median_abs_deviation(lclist[variableindex].flux)) \
+                    and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used:
 
                     lcbackup = lclist[variableindex].copy()
 
-                    lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
+                    lclist[variableindex],_ = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
                     try:
                         # Apply K2SC
                         with warnings.catch_warnings(record=True) as w:
@@ -1415,6 +1413,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                             lclist[variableindex] = lcbackup
 
                     finally:
+                        # If CENTROID gives the same MAD as POS_CORR,
+                        # AND POS_CORR has much less points, use CENTROID because more points
+                        MADbefore = median_abs_deviation(lcbackup.corr_flux)
+                        MADafter = median_abs_deviation(lclist[variableindex].corr_flux)
+                        if MADafter*1.1 > MADbefore and MADbefore > MADafter*0.9 and \
+                        lcbackup.time.shape[0] - lclist[variableindex].time.shape[0] > 50:
+                            lclist[variableindex] = lcbackup
+
                         del lcbackup
 
 

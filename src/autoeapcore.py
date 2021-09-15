@@ -240,6 +240,36 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
                 else:
                     apsbckup[y,x] = _currentmaxapnumber+mindistat
 
+            # Do not let Gaia to split aperture into single pixels
+            apsbckup2 = apsbckup.copy()
+
+            # Iteration is needed to merge neighboring single pixels into a large aperture
+            while True:
+                for ii in np.unique(apsbckup[thismask[0],thismask[1]]):
+                    npixs = np.where( apsbckup[thismask[0],thismask[1]] == ii )[0].shape[0]
+                    # Append single pixel to closest aperture number
+                    if npixs == 1 and thismask[0].shape[0] > 1:
+                        singlepixelat = np.where(apsbckup[thismask[0],thismask[1]] == ii)[0]
+
+                        # Append single pixel to closest aperture number
+                        try:
+                            apsbckup2[thismask[0][singlepixelat],thismask[1][singlepixelat]] = apsbckup[thismask[0][singlepixelat+1],thismask[1][singlepixelat+1]]
+                        except IndexError:
+                            # If pixel is last element, append it to the previous aperture number
+                            apsbckup2[thismask[0][singlepixelat],thismask[1][singlepixelat]] = apsbckup[thismask[0][singlepixelat-1],thismask[1][singlepixelat-1]]
+
+                try:
+                    # If aperture is the same, break loop
+                    np.testing.assert_array_equal(apsbckup,apsbckup2)
+
+                    break
+                except AssertionError:
+                    apsbckup = apsbckup2
+
+            apsbckup = apsbckup2
+            del apsbckup2
+
+
             if show_plots or save_plots:
                 plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
                 plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )

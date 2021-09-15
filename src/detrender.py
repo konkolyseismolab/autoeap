@@ -89,7 +89,7 @@ def clean_lightcurve(x,y,sigma=4,plotting=False):
     return  goodpts
 
 
-def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder=9,sigma=10,show_plots=False,save_plots=False,debug=False):
+def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False,save_plots=False,debug=False):
     """
     Deterending with a polynomial that is fitted w.r.t. phase dispersion minimization.
 
@@ -163,6 +163,17 @@ def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder=9,sigma=10,show_plots=
     meany = np.nanmean(y)
     x -= meanx
     y -= meany
+
+    # Estimate polyorder based on covered cycles
+    if polyorder == 'auto':
+        if x.ptp()/(1/testf) < 5:
+            polyorder = 0
+        elif x.ptp()/(1/testf) < 200:
+            polyorder = 5
+        elif x.ptp()/(1/testf) < 500:
+            polyorder = 7
+        else:
+            polyorder = 9
 
     # Run PDM-based polynomial fitting
     res,const = get_trend(x,y,err,freq=testf,polyorder=polyorder)

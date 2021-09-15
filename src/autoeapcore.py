@@ -407,8 +407,15 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     campaignnum=tpf.campaign
 
     print('Finding PSF centroids and removing outliers')
-    psfc1 = strip_quantity( tpf.estimate_centroids()[0] )
-    psfc2 = strip_quantity( tpf.estimate_centroids()[1] )
+    centroids = tpf.estimate_centroids()
+    psfc1 = strip_quantity( centroids[0] )
+    psfc2 = strip_quantity( centroids[1] )
+    # If there is no pipeline aperture
+    if np.all(np.isnan(psfc1)) or np.all(np.isnan(psfc2)):
+        centroids = tpf.estimate_centroids(aperture_mask='all')
+        psfc1 = strip_quantity( centroids[0] )
+        psfc2 = strip_quantity( centroids[1] )
+    del centroids
 
     goodpts =  np.isfinite(psfc1) & np.isfinite(psfc2)
 

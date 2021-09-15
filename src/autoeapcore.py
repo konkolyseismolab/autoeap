@@ -1070,7 +1070,7 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
-                        polyorder=9, sigma_detrend=10,
+                        polyorder='auto', sigma_detrend=10,
                         outlier_ratio=2.0,
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
@@ -1103,7 +1103,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         If `True` all the plots will be displayed.
     save_plots: bool, default: False
         If `True` all the plots will be saved to a subdirectory.
-    polyorder : int, default: 9
+    polyorder : int or 'auto', default: 'auto'
         The order of the detrending polynomial. Applies only
         if ``remove_spline`` is `True`.
     sigma_detrend: float, default: 10
@@ -1539,9 +1539,9 @@ def autoeap_from_commandline(args=None):
                            help='After the raw or K2SC photomery, remove a '
                                 'low-order spline from the extracted light curve.')
     parser.add_argument('--polyorder',
-                           metavar='<detrending-polynomial-order>', type=int, default=9,
+                           metavar='<detrending-polynomial-order>', default='auto',
                            help='The order of the detrending polynomial. '
-                                'Default is 9.')
+                                'Default is auto.')
     parser.add_argument('--sigmadetrend',
                            metavar='<detrending-sigma-limit>', type=float, default=10.0,
                            help='The number of standard deviations to use for sigma '

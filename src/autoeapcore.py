@@ -872,13 +872,31 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
                                debug=False):
 
     goodpts = np.isfinite(strip_quantity(lclist[variableindex].flux))
-    freq,power = LombScargle(lclist[variableindex].time[goodpts], lclist[variableindex].flux[goodpts]).autopower(
-                                normalization='psd',
-                                nyquist_factor=0.8,
-                                minimum_frequency=0.05,
-                                samples_per_peak=50)
+    t = lclist[variableindex].time[goodpts]
+    y = lclist[variableindex].flux[goodpts]
+    freq,power = LombScargle(t,y).autopower(normalization='psd',
+                                            nyquist_factor=0.8,
+                                            minimum_frequency=0.05,
+                                            samples_per_peak=50)
 
     testf = freq[np.argmax(power)]
+
+    # If test period is larger than data length, remove linear
+    if testf <= 1/np.ptp(t):
+        y -= np.poly1d(np.polyfit(t,y,1))(t)
+
+        freq,power = LombScargle(t,y).autopower(normalization='psd',
+                                                nyquist_factor=0.8,
+                                                minimum_frequency=0.05,
+                                                samples_per_peak=50)
+
+        testf = freq[np.argmax(power)]
+
+        # If period is still larger than data length
+        if testf <= 1/np.ptp(t):
+            testf = 1/np.ptp(t)
+
+    del goodpts,t,y,freq,power
 
     newfinallc = None
 
@@ -1022,7 +1040,7 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
             lcPDM  = PDM_theta(newlc,testf)
 
             if lccdpp < cdpp_list[bestat] and lcPDM <= PDMtheta_list[bestat]:
-                if debug: print('Adding another pixel to new aperture with new cdpp=',lccdpp)
+                if debug: print('Adding another pixel to new aperture with new CDPP & PDM theta =',lccdpp,lcPDM)
                 newmask_pixels.append([iadj,jadj])
 
         newmask = np.full_like(newcorona,False,dtype=bool)
@@ -1167,10 +1185,7 @@ def PDM_theta(lc,testf):
 
     w = weights( yerr )
 
-    if testf <= 1/np.ptp(x):
-        raise ValueError('Test frequency is larger than data length!')
-    else:
-        kind='binned_linterp'
+    kind='binned_linterp'
 
     testf = np.atleast_1d(testf)
     x     = np.asarray(x,dtype=np.floating)

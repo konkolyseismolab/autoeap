@@ -248,6 +248,15 @@ def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=Fa
                 if show_plots: plt.show()
                 plt.close(fig)
 
+    # Make sure there is no gap between aperture numbers
+    while True:
+        gapat = np.where( np.diff(np.unique(apsbckup)) > 1 )[0]
+        if len(gapat) == 0:
+            break
+
+        decrease = np.where( apsbckup > np.unique(apsbckup)[gapat][0] )
+        apsbckup[decrease[0],decrease[1]] -= 1
+
     return apsbckup
 
 def apdrawer(intgrid):

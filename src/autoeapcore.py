@@ -871,7 +871,7 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
                                show_plots=False,
                                debug=False):
 
-    goodpts = np.isfinite(lclist[variableindex].time)
+    goodpts = np.isfinite(strip_quantity(lclist[variableindex].flux))
     freq,power = LombScargle(lclist[variableindex].time[goodpts], lclist[variableindex].flux[goodpts]).autopower(
                                 normalization='psd',
                                 nyquist_factor=0.8,
@@ -1159,6 +1159,11 @@ def PDM_theta(lc,testf):
     x = strip_quantity(lc.time)
     y = strip_quantity(lc.flux)
     yerr = strip_quantity(lc.flux_err)
+
+    goodpts = np.isfinite(y) & np.isfinite(yerr)
+    x = x[goodpts]
+    y = y[goodpts]
+    yerr = yerr[goodpts]
 
     w = weights( yerr )
 

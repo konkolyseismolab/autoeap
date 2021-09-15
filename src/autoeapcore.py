@@ -1033,18 +1033,21 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     if show_plots: plt.show()
     plt.close(fig)
 
-def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
+def outlier_correction_before_k2sc(lc,max_missing_pos_corr=10,force_pos_corr=False):
+    pos_corr_used = False
     try:
         # --- Use POS_CORR if possible ---
         x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
         nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
 
         # --- Use Centroid if there are too many missing values ---
-        if np.sum(np.isfinite(x))/np.sum(np.isfinite(strip_quantity(lc.time)))*100 > outlier_ratio or \
-        np.sum(np.isfinite(y))/np.sum(np.isfinite(strip_quantity(lc.time)))*100 > outlier_ratio or \
+        if np.sum(~np.isfinite(x)) > max_missing_pos_corr or \
+        np.sum(~np.isfinite(y)) > max_missing_pos_corr or \
         np.sum(np.isfinite(x) & np.isfinite(y))==0:
             goodposcorr = np.sum(np.isfinite(x) & np.isfinite(y))
             raise ValueError
+
+        pos_corr_used = True
     except:
         x, y = strip_quantity(lc.centroid_col), strip_quantity(lc.centroid_row)
         nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
@@ -1054,15 +1057,19 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
             x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
             nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
 
+            pos_corr_used = True
+
     if force_pos_corr:
         x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
         nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
+
+        pos_corr_used = True
 
     lc = lc.copy()[nm]
     lc.pos_corr1 = lc.pos_corr1[nm]
     lc.pos_corr2 = lc.pos_corr2[nm]
 
-    return lc
+    return lc, pos_corr_used
 
 ################
 # Main function
@@ -1071,7 +1078,7 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0,force_pos_corr=False):
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
                         polyorder='auto', sigma_detrend=10,
-                        outlier_ratio=2.0,
+                        max_missing_pos_corr=10,
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
     """
@@ -1110,11 +1117,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         The number of standard deviations to use for sigma
         clipping limit before spline correction. Applies only
         if ``remove_spline`` is `True`.
-    outlier_ratio: float, default: 2
-        Missing value threshold in % below which position correction values
-        (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the
-        light curve points! Otherwise, less reliable photometrically estimated
-        centroids will be used.
+    max_missing_pos_corr: int, default: 10
+        Maximum number of missing position correction (POS_CORR) values.
+        If too many POS_CORR is missing, then less reliable photometrically
+        estimated centroids will be used for K2SC. Missing POS_CORR values
+        reduce the number of light curve points!
     TH : int or float, default: 8
         Threshold to segment each target in each TPF candence. Only used if
         targets cannot be separated normally. Do not change this value unless
@@ -1332,7 +1339,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
                 lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
 
-                lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio)
+                lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr)
 
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
@@ -1352,18 +1359,18 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         lclist[variableindex].k2sc(campaign=campaignnum,
                                                kernel='quasiperiodic',
                                                kernel_period=period,
-                                               outlier_ratio=outlier_ratio, **kwargs)
+                                               max_missing_pos_corr=max_missing_pos_corr, **kwargs)
                 except np.linalg.LinAlgError:
                     try:
                         # If K2SC fails, force the usage of POS_CORR w/ usually less useful points
                         forced_K2SC = True
                         lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],
-                                                                               outlier_ratio=outlier_ratio,force_pos_corr=True)
+                                                                               max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
                         with warnings.catch_warnings(record=True) as w:
                             lclist[variableindex].k2sc(campaign=campaignnum,
                                                kernel='quasiperiodic',
                                                kernel_period=period,
-                                               outlier_ratio=outlier_ratio,
+                                               max_missing_pos_corr=max_missing_pos_corr,
                                                force_pos_corr=True, **kwargs)
                     except np.linalg.LinAlgError:
                         warnings.warn('K2SC failed! Returning raw EAP photometry!',
@@ -1385,14 +1392,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                     lcbackup = lclist[variableindex].copy()
 
-                    lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio,force_pos_corr=True)
+                    lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
                     try:
                         # Apply K2SC
                         with warnings.catch_warnings(record=True) as w:
                             lclist[variableindex].k2sc(campaign=campaignnum,
                                                kernel='quasiperiodic',
                                                kernel_period=period,
-                                               outlier_ratio=outlier_ratio,
+                                               max_missing_pos_corr=max_missing_pos_corr,
                                                force_pos_corr=True, **kwargs)
                     except np.linalg.LinAlgError as err:
                         # If still "leading minor not positive definite" reduce DE time
@@ -1401,7 +1408,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                 lclist[variableindex].k2sc(campaign=campaignnum,
                                                    kernel='quasiperiodic',
                                                    kernel_period=period,
-                                                   outlier_ratio=outlier_ratio,
+                                                   max_missing_pos_corr=max_missing_pos_corr,
                                                    force_pos_corr=True,
                                                    de_max_time=1, **kwargs)
                         except:
@@ -1547,14 +1554,6 @@ def autoeap_from_commandline(args=None):
                            help='The number of standard deviations to use for sigma '
                                 'clipping limit before spline correction. '
                                 'Default is 10.0')
-    parser.add_argument('--outlierratio',
-                           metavar='<outlier-ratio>', type=float, default=2.0,
-                           help='Missing value threshold in percent below which '
-                                'position correction values (POS_CORR) are '
-                                'used for K2SC. Missing POS_CORR values will '
-                                'reduce the light curve points! Otherwise, '
-                                'less reliable photometrically estimated '
-                                'centroids will be used. Default is 2.')
     parser.add_argument('--saveplots',
                            action='store_true',
                            help='Save all the plots that show each step '
@@ -1588,7 +1587,6 @@ def autoeap_from_commandline(args=None):
                     save_plots=args.saveplots,
                     polyorder=args.polyorder,
                     sigma_detrend=args.sigmadetrend,
-                    outlier_ratio=args.outlierratio,
                     TH=args.TH,
                     ROI_lower=args.ROIlower,
                     ROI_upper=args.ROIupper)

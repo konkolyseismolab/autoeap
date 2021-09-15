@@ -298,15 +298,15 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
     lc.k2sc()
     '''
 
-    def get_k2data(self,outlier_ratio=2.0,force_pos_corr=False):
+    def get_k2data(self,max_missing_pos_corr=10,force_pos_corr=False):
         try:
             # --- Use POS_CORR if possible ---
             goodposcorr = None
             x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
 
             # --- Use Centroid if there are too many missing values ---
-            if np.sum(np.isfinite(x))/np.sum(np.isfinite(strip_quantity(self.time)))*100 > outlier_ratio or \
-            np.sum(np.isfinite(y))/np.sum(np.isfinite(strip_quantity(self.time)))*100 > outlier_ratio:
+            if np.sum(~np.isfinite(x)) > max_missing_pos_corr or \
+            np.sum(~np.isfinite(y)) > max_missing_pos_corr:
                 goodposcorr = np.sum(np.isfinite(x) & np.isfinite(y))
                 raise ValueError
         except:
@@ -332,10 +332,10 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
                       campaign       = self.campaign)
         return dataset
 
-    def k2sc(self,outlier_ratio=2.0,force_pos_corr=False,**kwargs):
+    def k2sc(self,max_missing_pos_corr=10,force_pos_corr=False,**kwargs):
         from astropy.units import UnitConversionError
 
-        dataset = self.get_k2data(outlier_ratio=outlier_ratio,force_pos_corr=force_pos_corr)
+        dataset = self.get_k2data(max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=force_pos_corr)
         results = detrend(dataset,**kwargs) # see keyword arguments from detrend above
 
         if results == 0:

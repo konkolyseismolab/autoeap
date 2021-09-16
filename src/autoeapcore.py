@@ -1028,20 +1028,6 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
 
     cdpp_list = np.array(cdpp_list)
     PDMtheta_list = np.array(PDMtheta_list)
-    if debug:
-        plt.title('CDPPs after adding +1-1 pixels from adjacent pixels')
-        plt.plot(cdpp_list)
-        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
-        plt.axhline(initialcdpp-2.5*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
-        plt.xlabel('Final aperture + 1 pixel adjacent pixels')
-        plt.ylabel('CDPP')
-        plt.legend()
-        ax2 = plt.twinx()
-        ax2.plot(PDMtheta_list,c='C1')
-        ax2.set_ylabel('PDM theta')
-        ax2.axhline(initialPDM-3*np.std(PDMtheta_list),c='C1',alpha=0.5,zorder=0,ls='--')
-        ax2.yaxis.label.set_color('C1')
-        plt.show()
 
     # Check if new aperture's CDPP and PDM theta is better with at least 2.5-sigma
     append_pixels = False
@@ -1064,6 +1050,23 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
         # Check at lowest PDM theta
         append_pixels = True
         bestat = bestPDM
+
+    if debug:
+        plt.title('CDPPs after adding +1-1 pixels from adjacent pixels')
+        plt.plot(cdpp_list)
+        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
+        plt.axhline(initialcdpp-2.5*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
+        if append_pixels: plt.axvline(bestat,c='g',zorder=0)
+        plt.xlabel('Final aperture + 1 pixel adjacent pixels')
+        plt.ylabel('CDPP')
+        plt.legend()
+        ax2 = plt.twinx()
+        ax2.plot(PDMtheta_list,c='C1')
+        ax2.set_ylabel('PDM theta')
+        plt.axhline(initialPDM,c='C1',zorder=0,alpha=0.5)
+        ax2.axhline(initialPDM-3*np.std(PDMtheta_list),c='C1',alpha=0.5,zorder=0,ls='--')
+        ax2.yaxis.label.set_color('C1')
+        plt.show()
 
     if append_pixels:
         print('Extending aperture with new CDPP & PDM theta',cdpp_list[bestat],PDMtheta_list[bestat])

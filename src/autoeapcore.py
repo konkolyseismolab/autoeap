@@ -64,6 +64,14 @@ def get_gaia(tpf, magnitude_limit=18):
     result = result[um]
     coords = coords[um]
 
+    # Query SDSS for galaxies in TPF
+    try:
+        sdssquery,sdsscoords = query_sdss(tpf,c1,rad)
+        result = result.append(sdssquery,ignore_index=True)
+        coords = np.concatenate((coords,sdsscoords))
+    except:
+        pass
+
     # Gently size the points by their Gaia magnitude
     sizes = 64.0 / 2**(result['Gmag']/5.0)
     one_over_parallax = 1.0 / (result['Plx']/1000.)
@@ -78,6 +86,42 @@ def get_gaia(tpf, magnitude_limit=18):
                 size=sizes.to_numpy())
 
     return data
+
+def query_sdss(tpf,c,rad_arcsec):
+    from astroquery.gaia import Gaia
+
+    try:
+        job = Gaia.launch_job("SELECT obj_id,ra,dec,i_mag "
+        "FROM gaiadr1.sdssdr9_original_valid "
+        "WHERE 1=CONTAINS( "
+        "POINT('ICRS',"+str(c.ra.value)+","+str(c.dec.value)+"), "
+        "CIRCLE('ICRS',ra, dec, "+str(rad_arcsec/3600.)+")) "
+        "AND i_mag<21 AND objc_type=3")
+
+        sdssquery = job.get_results()
+    except requests.exceptions.ConnectionError:
+        sleep(1)
+
+        job = Gaia.launch_job("SELECT obj_id,ra,dec,i_mag "
+        "FROM gaiadr1.sdssdr9_original_valid "
+        "WHERE 1=CONTAINS( "
+        "POINT('ICRS',"+str(c.ra.value)+","+str(c.dec.value)+"), "
+        "CIRCLE('ICRS',ra, dec, "+str(rad_arcsec/3600.)+")) "
+        "AND i_mag<21 AND objc_type=3")
+
+        sdssquery = job.get_results()
+
+    sdssquery = sdssquery.to_pandas()
+
+    radecs = np.vstack([sdssquery.ra, sdssquery.dec]).T
+    coords = tpf.wcs.all_world2pix(radecs, 1)
+    um = (coords[:, 0]-1>=-1) & (coords[:, 1]-1>=-1) & (coords[:, 0]-1<=tpf.shape[2]+1) & (coords[:, 1]-1<=tpf.shape[1]+1)
+    sdssquery = sdssquery[um]
+    coords    = coords[um]
+
+    sdssquery.columns = ['Source','RA_ICRS','DE_ICRS','Gmag']
+
+    return sdssquery,coords
 
 def how_many_stars_inside_aperture(apnum,segm,gaia):
     '''Count number of Gaia objects inside each aperture'''

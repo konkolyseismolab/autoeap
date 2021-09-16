@@ -88,7 +88,19 @@ def get_gaia(tpf, magnitude_limit=18):
     return data
 
 def query_sdss(tpf,c,rad_arcsec):
-    from astroquery.gaia import Gaia
+    import sys
+
+    class HiddenPrints:
+        def __enter__(self):
+            self._original_stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            sys.stdout.close()
+            sys.stdout = self._original_stdout
+
+    with HiddenPrints():
+        from astroquery.gaia import Gaia
 
     try:
         job = Gaia.launch_job("SELECT obj_id,ra,dec,i_mag "

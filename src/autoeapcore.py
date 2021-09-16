@@ -1016,6 +1016,10 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
         # Check at lowest CDPP
         append_pixels = True
         bestat = bestcdpp
+    elif len(cdpp_list)>0 and cdpp_list[bestPDM] < initialcdpp and PDMtheta_list[bestPDM] < initialPDM:
+        # Check at lowest PDM theta
+        append_pixels = True
+        bestat = bestPDM
 
     if append_pixels:
         print('Extending aperture with new CDPP & PDM theta',cdpp_list[bestat],PDMtheta_list[bestat])
@@ -1056,6 +1060,7 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True
 
+        # Get lc with filled new aperture
         newmask = apgapfilling(newmask).astype(bool)
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True

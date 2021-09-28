@@ -1567,6 +1567,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                                max_missing_pos_corr=max_missing_pos_corr,
                                                force_pos_corr=True, **kwargs)
                     except np.linalg.LinAlgError:
+                        from lightkurve.utils import LightkurveWarning
                         warnings.warn('K2SC failed! Returning raw EAP photometry!',
                                       LightkurveWarning)
 

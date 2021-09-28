@@ -1762,6 +1762,14 @@ def autoeap_from_commandline(args=None):
                            action='store_true',
                            help='Save all the plots that show each step '
                                 'into a subdirectory.')
+    parser.add_argument('--maxmissingposcorr',
+                           metavar='<max-missing-pos-corr>', type=int, default=10,
+                           help='Maximum number of missing position correction '
+                                '(POS_CORR) values. If too many POS_CORR is '
+                                'missing, then less reliable photometrically '
+                                'estimated centroids will be used for K2SC. '
+                                'Missing POS_CORR values reduce the number of '
+                                'light curve points!')
     parser.add_argument('--TH',
                            metavar='<threshold-value>', type=float, default=8,
                            help='Threshold to segment each target in each TPF '
@@ -1791,6 +1799,7 @@ def autoeap_from_commandline(args=None):
                     save_plots=args.saveplots,
                     polyorder=args.polyorder,
                     sigma_detrend=args.sigmadetrend,
+                    max_missing_pos_corr=args.maxmissingposcorr,
                     TH=args.TH,
                     ROI_lower=args.ROIlower,
                     ROI_upper=args.ROIupper)

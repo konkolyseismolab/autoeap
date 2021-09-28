@@ -9,4 +9,4 @@ tqdm>=4.25.0
 numba
 memoization
 oktopus
-astroquery
+astroquery!=0.4.2.dev0

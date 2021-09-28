@@ -1584,7 +1584,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.6*median_abs_deviation(lclist[variableindex].flux) or \
                     median_abs_deviation(lclist[variableindex].corr_flux) > 1.5*median_abs_deviation(lclist[variableindex].flux)) \
                     and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used \
-                    and np.all(np.isnan(lclist[variableindex].pos_corr1)):
+                    and ~np.all(np.isnan(lclist[variableindex].pos_corr1)):
 
                     lcbackup = lclist[variableindex].copy()
 

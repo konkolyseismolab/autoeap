@@ -73,6 +73,11 @@ def clean_lightcurve(x,y,sigma=4,plotting=False):
                                     return_trend=True,
                                     method='median')
 
+    # Handle if trend is all nan
+    if np.all(np.isnan(cos_trend)):
+        flatten_lc = y
+        cos_trend  = np.ones_like(cos_trend) * np.mean(y)
+
     # Find outliers after removing cosine fit
     goodpts = sigma_clip(flatten_lc, sigma_lower=sigma, sigma_upper=sigma, maxiters=5, cenfunc='mean', stdfunc='std')
     goodpts = ~goodpts.mask

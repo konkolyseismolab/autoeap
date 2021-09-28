@@ -149,6 +149,23 @@ def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder='auto',sigma=10,show_p
     lsfreqs,lspow = LombScargle(x,y).autopower(nyquist_factor=1,samples_per_peak=50,minimum_frequency=0.05)
     testf = lsfreqs[np.argmax(lspow)]
 
+    # If test period is larger than data length, remove linear
+    if testf <= 1/np.ptp(x):
+        y -= np.poly1d(np.polyfit(x,y,1))(x)
+
+        lsfreqs,lspow = LombScargle(x,y).autopower(normalization='psd',
+                                                nyquist_factor=1,
+                                                minimum_frequency=0.05,
+                                                samples_per_peak=50)
+
+        testf = lsfreqs[np.argmax(lspow)]
+
+        # If period is still larger than data length
+        if testf <= 1/np.ptp(x):
+            testf = 1/np.ptp(x)
+
+    del lsfreqs,lspow
+
     if debug:
         print('Best period is', round(1/testf,8),'days' )
 

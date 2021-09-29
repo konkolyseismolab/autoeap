@@ -31,12 +31,13 @@ def theta_by_coeffs(coeffs,*params):
     else:
         kind='binned_linterp'
 
-    testf = np.atleast_1d(testf)
-    x =          np.asarray(x,dtype=np.floating)
-    ydetrended = np.asarray(ydetrended,dtype=np.floating)
-    testf =      np.asarray(testf,dtype=np.floating)
-    w =          np.asarray(w,dtype=np.floating)
-    pows = PDM.PDM(x, ydetrended, w, testf, kind=kind, nbins=50, dphi=0.05)
+    with warnings.catch_warnings(record=True) as warnmessage:
+        testf = np.atleast_1d(testf)
+        x =          np.asarray(x,dtype=np.floating)
+        ydetrended = np.asarray(ydetrended,dtype=np.floating)
+        testf =      np.asarray(testf,dtype=np.floating)
+        w =          np.asarray(w,dtype=np.floating)
+        pows = PDM.PDM(x, ydetrended, w, testf, kind=kind, nbins=50, dphi=0.05)
 
     return 1 - pows
 

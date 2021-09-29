@@ -1642,13 +1642,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     print('Removing spline')
                     from autoeap.detrender import detrend_wrt_PDM
 
-                    splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time)+2454833,
+                    splinedLC = detrend_wrt_PDM( strip_quantity(lclist[variableindex].time)+2454833,
                                                     strip_quantity(lclist[variableindex].corr_flux),
                                                     strip_quantity(lclist[variableindex].flux_err),
                                                     polyorder=polyorder,
                                                     sigma=sigma_detrend,
                                                     show_plots=show_plots,
                                                     save_plots=save_plots,
+                                                    filename=targettpf,
                                                     debug=debug)
 
                     if save_lc:
@@ -1685,13 +1686,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         from autoeap.detrender import detrend_wrt_PDM
         print('Removing spline')
 
-        splinedLC = detrend_wrt_PDM( targettpf, strip_quantity(lclist[variableindex].time)+2454833,
+        splinedLC = detrend_wrt_PDM( strip_quantity(lclist[variableindex].time)+2454833,
                                         strip_quantity(lclist[variableindex].flux),
                                         strip_quantity(lclist[variableindex].flux_err),
                                         polyorder=polyorder,
                                         sigma=sigma_detrend,
                                         show_plots=show_plots,
                                         save_plots=save_plots,
+                                        filename=targettpf,
                                         debug=debug)
 
         if save_lc:

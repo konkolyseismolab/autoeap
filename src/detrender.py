@@ -94,14 +94,12 @@ def clean_lightcurve(x,y,sigma=4,plotting=False):
     return  goodpts
 
 
-def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False,save_plots=False,debug=False):
+def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False,save_plots=False,filename=None,debug=False):
     """
     Deterending with a polynomial that is fitted w.r.t. phase dispersion minimization.
 
     Parameters
     ----------
-    targettpf : string
-        Name of the output directory/file.
     time : array-like
         Time values.
     flux : array-like
@@ -114,6 +112,8 @@ def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder='auto',sigma=10,show_p
         If `True` the plot will be displayed.
     save_plots: bool, default: False
         If `True` the plot will be saved to a subdirectory.
+    filename : string
+        If `save_plots` is `True`, the name of the output directory/file.
     debug : bool, default: False
         If `True` debug plots/prints will be displayed.
 
@@ -248,7 +248,7 @@ def detrend_wrt_PDM(targettpf,time,flux,fluxerr,polyorder='auto',sigma=10,show_p
     ax4.set_xlabel('Phase')
 
     plt.tight_layout()
-    if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_detrend.png',format='png',dpi=80)
+    if save_plots and filename is not None: plt.savefig(filename+'_plots/'+filename+'_detrend.png',format='png',dpi=80)
     if show_plots: plt.show()
     plt.close()
 

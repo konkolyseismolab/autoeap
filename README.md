@@ -7,12 +7,12 @@
 The details of Extended Aperture Photometry are published in [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract).
 A short summary of automatization is published [here](https://ui.adsabs.harvard.edu/abs/2020arXiv200908786P/abstract).
 
-## Installation
+# Installation and dependencies
 
 To install the package, use:
 
 ```bash
-pip install autoeap
+pip install numpy cython autoeap
 ```
 
 ## Example usage
@@ -28,7 +28,7 @@ import autoeap
 time, flux, flux_err = autoeap.createlightcurve(yourtpf)
 ```
 
-Or if you want to let autoEAP download the TPF from MAST database, you can just provide a target name and a campaign number:
+Or if you want to let autoEAP download the TPF from MAST database, you can just provide a target name and _optionally_ a campaign number:
 
 ```python
 import autoeap
@@ -59,19 +59,12 @@ You can find Google Colab friendly tutorials [in the examples](https://github.co
 ### Apply K2 Systematics Correction (K2SC)
 If you want to apply K2SC correction for your freshly made raw-photometry, first you should install [K2SC](https://github.com/OxES/k2sc). AutoEAP is based on that package, so if you find K2SC useful, please cite [Aigrain et al.,2016,MNRAS,459,2408](https://ui.adsabs.harvard.edu/abs/2016MNRAS.459.2408A/abstract).
 
-Installation:
-```
-git clone https://github.com/OxES/k2sc.git
-cd k2sc
-python setup.py install --user
+Installation with ``george``:
+```bash
+pip install george k2sc
 ```
 
-If it fails, try to install it with ``george``:
-```
-pip3 install george k2sc
-```
-
-And then without much hassle, you can use in python:
+And then without much hassle, you can apply the correction in python:
 ```python
 import autoeap
 
@@ -91,7 +84,7 @@ plt.show()
 ![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.jpg)
 
 ### Apply spline correction
-We have also built-in a method to remove trends using low-order splines. Just do to correct the raw light curve:
+We have also built-in a method to remove trends using low-order splines. To correct the raw light curve, do:
 ```python
 import autoeap
 
@@ -112,14 +105,16 @@ time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True,remove_s
  - `campaign` If local TPF file is not found, it will be downloaded from MAST, but ``campaign`` number should be defined as well, if the target has been observed in more than one campaign. Otherwise that campaign will be used in which the target were first observed.
  - `show_plots` If `True`, all the plots that visualize each step of photometry will be displayed.
  - `save_plots` If `True`, all the plots that visualize each step of photometry will be saved to a subdirectory.
- - `window_length` The length of filter window for spline correction given in days. Applies only if ``remove_spline`` is `True`. Default is `20` days.
- - `sigma_lower` The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
- - `sigma_upper` The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `3`.
- - `outlier_ratio` Missing value threshold in % below which position correction values (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the light curve points! Otherwise, less reliable photometrically estimated centroids will be used. Default is `2`.
-  - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`. Do not change this value unless you are aware of what you are doing!
-  - `ROI_lower` The aperture frequency grid range of interest threshold given in absolute number of selections above which pixels are considered to define the apertures.  Do not change this value unless you are aware of what you are doing! Default is `100`.
-  - `ROI_upper` The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Do not change this value unless you are aware of what you are doing! Default is `0.85`.
-- `**kwargs` Dictionary of arguments to be passed to ``k2sc.detrend``.
+ - `polyorder` The order of the detrending polynomial. Applies only if ``remove_spline`` is `True`. Default is `'auto'`.
+ - `sigma_detrend` The number of standard deviations to use for sigma clipping limit before spline correction. Applies only if ``remove_spline`` is `True`. Default is `10`.
+ - `max_missing_pos_corr` Maximum number of missing position correction (POS_CORR) values.
+     If too many POS_CORR is missing, then less reliable photometrically
+     estimated centroids will be used for K2SC. Missing POS_CORR values
+     reduce the number of light curve points! Default is `10`.
+ - `TH` Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is `8`. Do not change this value unless you are aware of what you are doing!
+ - `ROI_lower` The aperture frequency grid range of interest threshold given in absolute number of selections above which pixels are considered to define the apertures.  Do not change this value unless you are aware of what you are doing! Default is `100`.
+ - `ROI_upper` The aperture frequency grid range of interest threshold given in relative number of selections w.r.t. the number of all cadences below which pixels are considered to define the apertures. Do not change this value unless you are aware of what you are doing! Default is `0.85`.
+ - `**kwargs` Dictionary of arguments to be passed to ``k2sc.detrend``. [See options here](https://github.com/OxES/k2sc/blob/master/src/standalone.py#L41).
 
 ## Command-line tools
 After installation, ``autoEAP`` will be available from the command line:
@@ -131,8 +126,12 @@ After installation, ``autoEAP`` will be available from the command line:
 ```bash
 $ autoeap --help
 
-usage: autoeap [-h] [--campaign <campaign-number>] [--applyK2SC] [--removespline] [--windowlength <window-length-in-days>] [--sigmalower <sigma-lower>] [--sigmaupper <sigma-upper>] [--saveplots]
-               [--TH <threshold-value>] [--ROIlower <lower-ROI-value>] [--ROIupper <upper-ROI-value>]
+usage: autoeap [-h] [--campaign <campaign-number>] [--applyK2SC]
+               [--removespline] [--polyorder <detrending-polynomial-order>]
+               [--sigmadetrend <detrending-sigma-limit>] [--saveplots]
+               [--maxmissingposcorr <max-missing-pos-corr>]
+               [--TH <threshold-value>] [--ROIlower <lower-ROI-value>]
+               [--ROIupper <upper-ROI-value>]
                <path-to-targettpf-or-EPIC-number>
 
 Perform autoEAP photometry on K2 variable stars.
@@ -147,15 +146,13 @@ optional arguments:
                         If the target has been observed in more than one campaign, download this light curve. If not given, the first campaign will be downloaded.
   --applyK2SC           After the raw photomery, apply K2SC to remove systematics from the extracted light curve.
   --removespline        After the raw or K2SC photomery, remove a low-order spline from the extracted light curve.
-  --windowlength <window-length-in-days>
-                        The length of filter window for spline correction given in days. Default is 20 days.
-  --sigmalower <sigma-lower>
-                        The number of standard deviations to use as the lower bound for sigma clipping limit before spline correction. Default is 3.
-  --sigmaupper <sigma-upper>
-                        The number of standard deviations to use as the upper bound for sigma clipping limit before spline correction. Default is 3.
-  --outlierratio <outlier-ratio>
-                        Missing value threshold in % below which position correction values (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the light curve points! Otherwise, less reliable photometrically estimated centroids will be used. Default is 2.
+  --polyorder <detrending-polynomial-order>
+                        The order of the detrending polynomial. Default is auto.
+  --sigmadetrend <detrending-sigma-limit>
+                        The number of standard deviations to use for sigma clipping limit before spline correction. Default is 10.0
   --saveplots           Save all the plots that show each step into a subdirectory.
+  --maxmissingposcorr <max-missing-pos-corr>
+                        Maximum number of missing position correction (POS_CORR) values. If too many POS_CORR is missing, then less reliable photometrically estimated centroids will be used for K2SC. Missing POS_CORR values reduce the number of light curve points!
   --TH <threshold-value>
                         Threshold to segment each target in each TPF candence. Only used if targets cannot be separated normally. Default is 8.
   --ROIlower <lower-ROI-value>
@@ -167,7 +164,24 @@ optional arguments:
 ## Data Access
 
 We provide photometry for targets for the following Guest Observation Programs:
-```GO12111,GO8037,GO13111,GO14058,GO6082,GO16058,GO18033,GO10037,GO15058,GO17033.```
+GO0055,
+GO1018,
+GO2040,
+GO3040,
+GO4069,
+GO5069,
+GO6082,
+GO7082,
+GO8037,
+GO10037,
+GO12111,
+GO13111,
+GO14058,
+GO15058,
+GO16058,
+GO17033,
+GO18033,
+GO19033.
 
 Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://keplergo.github.io/KeplerScienceWebsite/k2-approved-programs.html)
 

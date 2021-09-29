@@ -68,7 +68,9 @@ And then without much hassle, you can apply the correction in python:
 ```python
 import autoeap
 
-time, flux, flux_err = autoeap.createlightcurve(yourtpf,apply_K2SC=True)
+targetID = 'EPIC 212466080'
+campaign = 17
+time, flux, flux_err = autoeap.createlightcurve(targetID,campaign=campaign,apply_K2SC=True)
 ```
 
 The result is quite delightful:
@@ -187,11 +189,28 @@ Slightly less than 2000 RRLs. See: [K2 approved targets & programs.](https://kep
 
 The data we have already created have been uploaded to our [webpage](https://konkoly.hu/KIK/data_en.html).
 
+## Standalone PDM-based detrender
+
+The PDM-based polynomial fitting and detrending can be used as a standalone module to be applied to e.g. raw `autoEAP` light curves or any other data sets given a time series with times, fluxes and flux errors. The `detrend_wrt_PDM` method returns the corrected light curve.
+
+```python
+from autoeap.detrender import detrend_wrt_PDM
+
+corrflux = detrend_wrt_PDM(time,               # Time values
+                           flux,               # Flux values
+                           flux_err,           # Flux errors
+                           polyorder='auto',   # Polynomial order or 'auto'
+                           sigma=10,           # Sigma value for sigma clipping before PDM calculation
+                           show_plots=True,    # Show the detrending process
+                           save_plots=False,   # Save the detrending process plot
+                           filename=None)      # using this directory/filename prefix
+```
+
 ## Contributing
 Feel free to open PR / Issue, or contact us [here](bodi.attila@csfk.org) or [here](ps738@cam.ac.uk).
 
 ## Citing
-If you find this code useful, please cite [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract), until the new paper is not ready. Here is the BibTeX source:
+If you use data provided by this pipeline please cite [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract), until the new paper is not ready. Here is the BibTeX source:
 ```
 @ARTICLE{2019ApJS..244...32P,
        author = {{Plachy}, Emese and {Moln{\'a}r}, L{\'a}szl{\'o} and {B{\'o}di}, Attila and {Skarka}, Marek and {Szab{\'o}}, P{\'a}l and {Szab{\'o}}, R{\'o}bert and {Klagyivik}, P{\'e}ter and {S{\'o}dor}, {\'A}d{\'a}m and {Pope}, Benjamin J.~S.},

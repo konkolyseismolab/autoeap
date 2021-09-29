@@ -191,7 +191,7 @@ The data we have already created have been uploaded to our [webpage](https://kon
 
 ## Standalone PDM-based detrender
 
-The PDM-based polynomial fitting and detrending can be used as a standalone module to be applied to e.g. raw `autoEAP` light curves or any other data sets given a time series with times, fluxes and flux errors. The `detrend_wrt_PDM` method returns the corrected light curve.
+The PDM-based polynomial fitting and detrending can be used as a standalone module to be applied to e.g. raw `autoEAP` light curves or any other data sets given a time series with times, fluxes and flux errors. The `detrend_wrt_PDM` method returns the corrected flux values.
 
 ```python
 from autoeap.detrender import detrend_wrt_PDM

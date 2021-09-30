@@ -26,10 +26,7 @@ def theta_by_coeffs(coeffs,*params):
 
     w = weights( yerr )
 
-    if testf <= 1/np.ptp(x):
-        raise ValueError('Test frequency is larger than data length!')
-    else:
-        kind='binned_linterp'
+    kind='binned_linterp'
 
     with warnings.catch_warnings(record=True) as warnmessage:
         testf = np.atleast_1d(testf)

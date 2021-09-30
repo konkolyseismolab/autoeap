@@ -570,6 +570,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 threshold = photutils.detect_threshold(tpfdata, nsigma=1.8)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None)
                 use_meanstd_threshold = False
+                if segm is None: continue
                 if segm.nlabels==1:
                     # if there is only one target, check if it is a merger of two
                     try: gaia = get_gaia(tpf,magnitude_limit=21)
@@ -599,9 +600,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
             elif use_meanstd_threshold:
                 threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)
+                if segm is None: continue
             else:
                 threshold = photutils.detect_threshold(tpfdata, nsigma=1.8)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None)
+                if segm is None: continue
 
         if i%1000==0:
             if save_plots or show_plots:

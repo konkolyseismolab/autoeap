@@ -1,10 +1,18 @@
+<div align="center">
+<img src="docs/autoeap_logo.png" width="50%">
+
+## **Automated Extended Aperture Photometry**
+
 [![pip](https://img.shields.io/badge/pip-install%20autoeap-blue.svg)](https://pypi.org/project/autoeap/)
 [![Image](https://img.shields.io/badge/tutorials-%E2%9C%93-blue.svg)](https://github.com/zabop/autoeap/tree/master/examples)
 [![Image](https://img.shields.io/badge/arXiv-1909.00446-blue.svg)](https://arxiv.org/abs/1909.00446)
+[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
 
-# autoEAP - Automated Extended Aperture Photometry, developed for high amplitude K2 variable stars
+</div>
 
-The details of Extended Aperture Photometry are published in [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract).
+--------------------------------------------------------------------------------
+
+The Automated Extended Aperture Photometry (autoEAP) is developed for high amplitude K2 variable stars. The details of EAP are published in [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract).
 A short summary of automatization is published [here](https://ui.adsabs.harvard.edu/abs/2020arXiv200908786P/abstract).
 
 # Installation and dependencies

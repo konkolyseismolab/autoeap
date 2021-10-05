@@ -444,7 +444,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         else:
             if len(result) == 0:
                 raise FileNotFoundError("""Empty search result. No target has been found in the given campaign!\n
-                                        If it is a splitted campaign e.g. 10, use 101 or 102!\n
+                                        If it is a split campaign e.g. 10, use 101 or 102!\n
                                         If still no results, install lightkurve 1.11.0\n
                                         pip install lightkurve==1.11.0""")
             tpf = result.download(quality_bitmask=98304)

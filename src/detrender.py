@@ -45,8 +45,10 @@ def get_trend(x,y,err,freq,polyorder=5):
 
     # Set bounds to first and second orders to avoid divergence
     bounds = tuple([(-np.inf,np.inf) for _ in range(len(p0)-3)])
-    bounds += ((p0[-3] - np.abs(p0[-3])*2., p0[-3] + np.abs(p0[-3])*2. ),)
-    bounds += ((p0[-2] - np.abs(p0[-2])*1., p0[-2] + np.abs(p0[-2])*1. ),)
+    try: bounds += ((p0[-3] - np.abs(p0[-3])*2., p0[-3] + np.abs(p0[-3])*2. ),)
+    except IndexError: pass
+    try: bounds += ((p0[-2] - np.abs(p0[-2])*1., p0[-2] + np.abs(p0[-2])*1. ),)
+    except IndexError: pass
 
     res = minimize(theta_by_coeffs, p0[:-1], args=(x,y,err,freq,const), method='Powell', bounds=bounds)
 

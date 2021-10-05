@@ -1583,7 +1583,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 if not hasattr(lclist[variableindex],'tr_time'):
                     from lightkurve.utils import LightkurveWarning
                     # No useful POS_COR or Centroid points (probably Campaign 101)
-                    warnings.warn('No useful POS_COR or Centroid points (probably Campaign 101)\nReturning raw EAP photometry!',
+                    warnings.warn('No useful POS_COR or Centroid points (probably Campaign 91, 101 or 111)\nReturning raw EAP photometry!',
                                   LightkurveWarning)
 
                 # If MAD after K2SC is very low (variation removed) or too high (outliers) force POS_CORR instead

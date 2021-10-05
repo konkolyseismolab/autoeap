@@ -64,6 +64,9 @@ def get_gaia(tpf, magnitude_limit=18):
     result = result[um]
     coords = coords[um]
 
+    if len(result) == 0:
+        raise too_few_found_message
+
     # Query SDSS for galaxies in TPF
     try:
         sdssquery,sdsscoords = query_sdss(tpf,c1,rad)

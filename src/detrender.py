@@ -50,6 +50,8 @@ def get_trend(x,y,err,freq,polyorder=5):
     try: bounds += ((p0[-2] - np.abs(p0[-2])*1., p0[-2] + np.abs(p0[-2])*1. ),)
     except IndexError: pass
 
+    if len(bounds) == 0: bounds=None
+
     res = minimize(theta_by_coeffs, p0[:-1], args=(x,y,err,freq,const), method='Powell', bounds=bounds)
 
     return res,const

@@ -1630,7 +1630,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         del lcbackup
 
                 # If MAD of corr_flux minus 2nd order polynomial is very low (i.e. just a noise trend remains) use pos_corr
-                elif median_abs_deviation(lclist[variableindex].corr_flux-pol) < 0.65*median_abs_deviation(lclist[variableindex].flux) and \
+                elif median_abs_deviation(lclist[variableindex].corr_flux-pol) < 0.65*median_abs_deviation(lclist[variableindex].flux) \
                     and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used \
                     and ~np.all(np.isnan(lclist[variableindex].pos_corr1)):
 

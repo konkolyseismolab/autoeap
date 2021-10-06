@@ -1588,6 +1588,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 # If MAD after K2SC is very low (variation removed) or too high (outliers) force POS_CORR instead
                 if debug: print('MAD:',median_abs_deviation(lclist[variableindex].flux) , median_abs_deviation(lclist[variableindex].corr_flux) )
+                pol = np.poly1d(np.polyfit(lclist[variableindex].time,lclist[variableindex].corr_flux,2))(lclist[variableindex].time)
                 if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.6*median_abs_deviation(lclist[variableindex].flux) or \
                     median_abs_deviation(lclist[variableindex].corr_flux) > 1.5*median_abs_deviation(lclist[variableindex].flux)) \
                     and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used \
@@ -1628,6 +1629,45 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                         del lcbackup
 
+                # If MAD of corr_flux minus 2nd order polynomial is very low (i.e. just a noise trend remains) use pos_corr
+                elif median_abs_deviation(lclist[variableindex].corr_flux-pol) < 0.65*median_abs_deviation(lclist[variableindex].flux) and \
+                    and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used \
+                    and ~np.all(np.isnan(lclist[variableindex].pos_corr1)):
+
+                    lcbackup = lclist[variableindex].copy()
+
+                    lclist[variableindex],_ = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
+                    try:
+                        # Apply K2SC
+                        with warnings.catch_warnings(record=True) as w:
+                            lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               max_missing_pos_corr=max_missing_pos_corr,
+                                               force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError as err:
+                        # If still "leading minor not positive definite" reduce DE time
+                        try:
+                            with warnings.catch_warnings(record=True) as w:
+                                lclist[variableindex].k2sc(campaign=campaignnum,
+                                                   kernel='quasiperiodic',
+                                                   kernel_period=period,
+                                                   max_missing_pos_corr=max_missing_pos_corr,
+                                                   force_pos_corr=True,
+                                                   de_max_time=1, **kwargs)
+                        except:
+                            lclist[variableindex] = lcbackup
+
+                    finally:
+                        # If CENTROID - polynomial gives the same MAD as POS_CORR,
+                        # AND POS_CORR has much less points, use CENTROID because more points
+                        MADbefore = median_abs_deviation(lcbackup.corr_flux-pol)
+                        MADafter = median_abs_deviation(lclist[variableindex].corr_flux)
+                        if MADafter*1.1 > MADbefore and MADbefore > MADafter*0.9 and \
+                        lcbackup.time.shape[0] - lclist[variableindex].time.shape[0] > 50:
+                            lclist[variableindex] = lcbackup
+
+                        del lcbackup
 
                 # --- Removing outliers before saving light curve (or removing spline) ---
                 lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)

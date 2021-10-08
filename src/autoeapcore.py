@@ -10,6 +10,9 @@ import warnings
 from astropy.units.quantity import Quantity
 from astropy.time.core import Time
 import argparse
+from scipy.stats import median_abs_deviation
+import PDM
+from astropy.timeseries import LombScargle
 
 def strip_quantity(data):
     if isinstance(data, Quantity) or isinstance(data, Time):
@@ -61,6 +64,17 @@ def get_gaia(tpf, magnitude_limit=18):
     result = result[um]
     coords = coords[um]
 
+    if len(result) == 0:
+        raise too_few_found_message
+
+    # Query SDSS for galaxies in TPF
+    try:
+        sdssquery,sdsscoords = query_sdss(tpf,c1,rad)
+        result = result.append(sdssquery,ignore_index=True)
+        coords = np.concatenate((coords,sdsscoords))
+    except:
+        pass
+
     # Gently size the points by their Gaia magnitude
     sizes = 64.0 / 2**(result['Gmag']/5.0)
     one_over_parallax = 1.0 / (result['Plx']/1000.)
@@ -75,6 +89,54 @@ def get_gaia(tpf, magnitude_limit=18):
                 size=sizes.to_numpy())
 
     return data
+
+def query_sdss(tpf,c,rad_arcsec):
+    import sys
+
+    class HiddenPrints:
+        def __enter__(self):
+            self._original_stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            sys.stdout.close()
+            sys.stdout = self._original_stdout
+
+    with HiddenPrints():
+        from astroquery.gaia import Gaia
+
+    try:
+        job = Gaia.launch_job("SELECT obj_id,ra,dec,i_mag "
+        "FROM gaiadr1.sdssdr9_original_valid "
+        "WHERE 1=CONTAINS( "
+        "POINT('ICRS',"+str(c.ra.value)+","+str(c.dec.value)+"), "
+        "CIRCLE('ICRS',ra, dec, "+str(rad_arcsec/3600.)+")) "
+        "AND i_mag<21 AND objc_type=3")
+
+        sdssquery = job.get_results()
+    except requests.exceptions.ConnectionError:
+        sleep(1)
+
+        job = Gaia.launch_job("SELECT obj_id,ra,dec,i_mag "
+        "FROM gaiadr1.sdssdr9_original_valid "
+        "WHERE 1=CONTAINS( "
+        "POINT('ICRS',"+str(c.ra.value)+","+str(c.dec.value)+"), "
+        "CIRCLE('ICRS',ra, dec, "+str(rad_arcsec/3600.)+")) "
+        "AND i_mag<21 AND objc_type=3")
+
+        sdssquery = job.get_results()
+
+    sdssquery = sdssquery.to_pandas()
+
+    radecs = np.vstack([sdssquery.ra, sdssquery.dec]).T
+    coords = tpf.wcs.all_world2pix(radecs, 1)
+    um = (coords[:, 0]-1>=-1) & (coords[:, 1]-1>=-1) & (coords[:, 0]-1<=tpf.shape[2]+1) & (coords[:, 1]-1<=tpf.shape[1]+1)
+    sdssquery = sdssquery[um]
+    coords    = coords[um]
+
+    sdssquery.columns = ['Source','RA_ICRS','DE_ICRS','Gmag']
+
+    return sdssquery,coords
 
 def how_many_stars_inside_aperture(apnum,segm,gaia):
     '''Count number of Gaia objects inside each aperture'''
@@ -116,7 +178,7 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     if len(whichstarisinaperture) > 1:
         magdiff = gaia['Gmag'][whichstarisinaperture] - np.min(gaia['Gmag'][whichstarisinaperture])
         magdiff = magdiff[ magdiff> 0]
-        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=17 and not bright_star_is_outside_of_CCD:
+        if np.min(magdiff) > 2.9 and np.sort(gaia['Gmag'][whichstarisinaperture])[1]>=16.8 and not bright_star_is_outside_of_CCD:
             numberofstars = 0
             whichstarisinaperture = []
 
@@ -153,101 +215,140 @@ def how_many_stars_inside_aperture(apnum,segm,gaia):
     return numberofstars,whichstarisinaperture,not_split_flag
 
 def split_apertures_by_gaia(tpf,aps,gaia,eachfile,show_plots=False,save_plots=False):
-        from scipy.stats import binned_statistic_2d
-        from scipy.spatial import distance_matrix
+    from scipy.stats import binned_statistic_2d
+    from scipy.spatial import distance_matrix
 
-        # Keep only the brightest targets per pixel
-        npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
-                                                    range=[[-1,tpf.shape[2]],[-1,tpf.shape[1]]],
-                                                    bins=(tpf.shape[2]+1,tpf.shape[1]+1),
-                                                    statistic='count')
+    # Keep only the brightest targets per pixel
+    npts, xedges, yedges,_ =  binned_statistic_2d(gaia['x'],gaia['y'],gaia['x'],
+                                                range=[[-1,tpf.shape[2]],[-1,tpf.shape[1]]],
+                                                bins=(tpf.shape[2]+1,tpf.shape[1]+1),
+                                                statistic='count')
 
-        umbin = []
-        for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
-            umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
-                                    & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
+    umbin = []
+    for a,b in zip(np.where(npts>1)[0],np.where(npts>1)[1]):
+        umbin.append( np.where( (gaia['x']>=xedges[a]) & (gaia['x']<=xedges[a+1]) \
+                                & (gaia['y']>=yedges[b]) & (gaia['y']<=yedges[b+1]))[0] )
 
-        deletevalues = []
-        for um in umbin:
-            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+    deletevalues = []
+    for um in umbin:
+        deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
 
+    for key in gaia.keys():
+        gaia[key] = np.delete(gaia[key], deletevalues)
+
+    # Find close targets and keep only the brightest target
+    distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
+    umbin = np.where( (distances>0) & (distances<1.41) )
+
+    deletevalues = []
+    for um in zip(umbin[0],umbin[1]):
+        um = np.array(um)
+        deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+
+    deletevalues = np.unique(deletevalues)
+
+    if len(deletevalues)>0:
         for key in gaia.keys():
             gaia[key] = np.delete(gaia[key], deletevalues)
 
-        # Find close targets and keep only the brightest target
-        distances = distance_matrix(np.c_[gaia['x'],gaia['y']],np.c_[gaia['x'],gaia['y']])
-        umbin = np.where( (distances>0) & (distances<1.41) )
+    apsbckup = aps.copy()
+    # Move stars near edge closer to edge
+    um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
+    if len(um)>0:
+        gaia['x'][um]=-0.5
 
-        deletevalues = []
-        for um in zip(umbin[0],umbin[1]):
-            um = np.array(um)
-            deletevalues += list(um[ np.argsort( gaia['Gmag'][um] )[1:] ])
+    um = np.where( (-0.5>=gaia['y']) & (gaia['y']>=-1) )[0]
+    if len(um)>0:
+        gaia['y'][um]=-0.5
 
-        deletevalues = np.unique(deletevalues)
+    um = np.where( (tpf.flux.shape[2]+0.5>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
+    if len(um)>0:
+        gaia['x'][um]=tpf.flux.shape[2]-0.5
 
-        if len(deletevalues)>0:
-            for key in gaia.keys():
-                gaia[key] = np.delete(gaia[key], deletevalues)
+    um = np.where( (tpf.flux.shape[1]+0.5>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
+    if len(um)>0:
+        gaia['y'][um]=tpf.flux.shape[1]-0.5
 
-        apsbckup = aps.copy()
-        # Move stars near edge closer to edge
-        um = np.where( (-0.5>=gaia['x']) & (gaia['x']>=-1) )[0]
-        if len(um)>0:
-            gaia['x'][um]=-0.5
+    weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
+    for apnumber in range(1,np.max(aps)+1):
+        _currentmaxapnumber = np.max(apsbckup)
+        starinsideaperture,whichstarisinaperture,_ = how_many_stars_inside_aperture(apnumber,aps,gaia)
+        if gaia is not None and starinsideaperture > 1:
+            if show_plots or save_plots:
+                fig = plt.figure(figsize=(6,6))
+                plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
+                plt.imshow(aps,origin='lower')
 
-        um = np.where( (-0.5>=gaia['y']) & (gaia['y']>=-1) )[0]
-        if len(um)>0:
-            gaia['y'][um]=-0.5
+                filtered=apdrawer((aps==apnumber)*1)
+                for x in range(len(filtered)):
+                    plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=3)
 
-        um = np.where( (tpf.flux.shape[2]+0.5>=gaia['x']) & (gaia['x']>=tpf.flux.shape[2]-0.5) )[0]
-        if len(um)>0:
-            gaia['x'][um]=tpf.flux.shape[2]-0.5
+                plt.scatter(gaia['x'],gaia['y'],color='k',marker='x',s=20*np.abs(40-gaia['Gmag']))
+                plt.scatter(gaia['x'],gaia['y'],color='k',s=2*np.abs(40-gaia['Gmag']) )
 
-        um = np.where( (tpf.flux.shape[1]+0.5>=gaia['y']) & (gaia['y']>=tpf.flux.shape[1]-0.5) )[0]
-        if len(um)>0:
-            gaia['y'][um]=tpf.flux.shape[1]-0.5
-
-        weight = gaia['Gmag']/np.min(gaia['Gmag']) # Weight pixel distances by magnitude
-        for apnumber in range(1,np.max(aps)+1):
-            _currentmaxapnumber = np.max(apsbckup)
-            starinsideaperture,whichstarisinaperture,_ = how_many_stars_inside_aperture(apnumber,aps,gaia)
-            if gaia is not None and starinsideaperture > 1:
-                if show_plots or save_plots:
-                    fig = plt.figure()
-                    plt.title('Splitting AFG aperture '+str(apnumber)+' by Gaia')
-                    plt.imshow(aps,origin='lower')
-
-                    filtered=apdrawer((aps==apnumber)*1)
-                    for x in range(len(filtered)):
-                        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=3)
-
-                    plt.plot(gaia['x'],gaia['y'],'kx',ms=20)
-                    plt.plot(gaia['x'],gaia['y'],'ko')
-
-                thismask = np.where(aps==apnumber)
-                for y,x in zip(thismask[0],thismask[1]):
-                    dist = []
-                    for gaiaID in whichstarisinaperture:
-                        dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2) * weight[gaiaID]  )
-
-                    if show_plots or save_plots:
-                        text = plt.text(x, y, str(round(np.min(dist),1)) ,
-                                            ha="center", va="center", color='C'+str(np.argmin(dist)))
-
-                    mindistat = np.argmin(dist)
-                    if mindistat==0: continue
-                    else:
-                        apsbckup[y,x] = _currentmaxapnumber+mindistat
+            thismask = np.where(aps==apnumber)
+            for y,x in zip(thismask[0],thismask[1]):
+                dist = []
+                for gaiaID in whichstarisinaperture:
+                    dist.append( np.sqrt((x-gaia['x'][gaiaID])**2+(y-gaia['y'][gaiaID])**2) * weight[gaiaID]  )
 
                 if show_plots or save_plots:
-                    plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
-                    plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
-                    plt.tight_layout()
-                    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png')
-                    if show_plots: plt.show()
-                    plt.close(fig)
+                    text = plt.text(x, y, str(round(np.min(dist),1)) ,
+                                        ha="center", va="center", color='C'+str(np.argmin(dist)))
 
-        return apsbckup
+                mindistat = np.argmin(dist)
+                if mindistat==0: continue
+                else:
+                    apsbckup[y,x] = _currentmaxapnumber+mindistat
+
+            # Do not let Gaia to split aperture into single pixels
+            apsbckup2 = apsbckup.copy()
+
+            # Iteration is needed to merge neighboring single pixels into a large aperture
+            while True:
+                for ii in np.unique(apsbckup[thismask[0],thismask[1]]):
+                    npixs = np.where( apsbckup[thismask[0],thismask[1]] == ii )[0].shape[0]
+                    # Append single pixel to closest aperture number
+                    if npixs == 1 and thismask[0].shape[0] > 1:
+                        singlepixelat = np.where(apsbckup[thismask[0],thismask[1]] == ii)[0]
+
+                        # Append single pixel to closest aperture number
+                        try:
+                            apsbckup2[thismask[0][singlepixelat],thismask[1][singlepixelat]] = apsbckup[thismask[0][singlepixelat+1],thismask[1][singlepixelat+1]]
+                        except IndexError:
+                            # If pixel is last element, append it to the previous aperture number
+                            apsbckup2[thismask[0][singlepixelat],thismask[1][singlepixelat]] = apsbckup[thismask[0][singlepixelat-1],thismask[1][singlepixelat-1]]
+
+                try:
+                    # If aperture is the same, break loop
+                    np.testing.assert_array_equal(apsbckup,apsbckup2)
+
+                    break
+                except AssertionError:
+                    apsbckup = apsbckup2
+
+            apsbckup = apsbckup2
+            del apsbckup2
+
+
+            if show_plots or save_plots:
+                plt.xticks( np.arange(tpf.shape[2]), np.arange(tpf.column,tpf.column+tpf.shape[2]) )
+                plt.yticks( np.arange(tpf.shape[1]), np.arange(tpf.row,tpf.row+tpf.shape[1]) )
+                plt.tight_layout()
+                if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_AFG_split_by_Gaia_aperture_'+str(apnumber)+'.png',dpi=150)
+                if show_plots: plt.show()
+                plt.close(fig)
+
+    # Make sure there is no gap between aperture numbers
+    while True:
+        gapat = np.where( np.diff(np.unique(apsbckup)) > 1 )[0]
+        if len(gapat) == 0:
+            break
+
+        decrease = np.where( apsbckup > np.unique(apsbckup)[gapat][0] )
+        apsbckup[decrease[0],decrease[1]] -= 1
+
+    return apsbckup
 
 def apdrawer(intgrid):
     down=[];up=[];left=[];right=[]
@@ -285,7 +386,7 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     fig = plt.figure(figsize=( len(colnums)//2,len(rownums)//2 ))
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.imshow(np.log(20+ strip_quantity(tpf.flux[cadence]) ),cmap='viridis',origin='lower')
+        plt.imshow(np.log10(20+ strip_quantity(tpf.flux[cadence]) ),cmap='viridis',origin='lower')
 
     ax=plt.gca()
 
@@ -300,20 +401,18 @@ def draw_a_single_aperture(tpf,cadence,segm,eachfile,show_plots=False,save_plots
     plt.title('C'+str(tpf.campaign)+' '+str(tpf.targetid)+'\nCadence no: '+str(cadence),fontsize=20)
     cbar = plt.colorbar()
     cbar.ax.get_yaxis().labelpad = 20
-    cbar.set_label('log(Calibrated Flux)', rotation=270, fontsize=20)
+    cbar.set_label('log(Calibrated Flux)', rotation=270,fontsize=20)
     filtered=apdrawer((segm.data>0)*1)
     for x in range(len(filtered)):
-        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='r',linewidth=12)
-        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='w',linewidth=6)
+        plt.plot(np.asarray(filtered[x][0])-0.5,np.asarray(filtered[x][1])-0.5,c='k',linewidth=5)
     plt.tight_layout()
-    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_single_tpf_cadencenum_'+str(cadence)+'.png')
+    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_single_tpf_cadencenum_'+str(cadence)+'.png',dpi=150)
     if show_plots: plt.show()
     plt.close(fig)
 
 
 def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     """Loop over each image and detect stars for each of them separatly"""
-    import os
 
     from sklearn.cluster import DBSCAN
     import matplotlib.gridspec as gridspec
@@ -345,7 +444,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         else:
             if len(result) == 0:
                 raise FileNotFoundError("""Empty search result. No target has been found in the given campaign!\n
-                                        If it is a splitted campaign e.g. 10, use 101 or 102!\n
+                                        If it is a split campaign e.g. 10, use 101 or 102!\n
                                         If still no results, install lightkurve 1.11.0\n
                                         pip install lightkurve==1.11.0""")
             tpf = result.download(quality_bitmask=98304)
@@ -367,8 +466,15 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
     campaignnum=tpf.campaign
 
     print('Finding PSF centroids and removing outliers')
-    psfc1 = strip_quantity( tpf.estimate_centroids()[0] )
-    psfc2 = strip_quantity( tpf.estimate_centroids()[1] )
+    centroids = tpf.estimate_centroids()
+    psfc1 = strip_quantity( centroids[0] )
+    psfc2 = strip_quantity( centroids[1] )
+    # If there is no pipeline aperture
+    if np.all(np.isnan(psfc1)) or np.all(np.isnan(psfc2)):
+        centroids = tpf.estimate_centroids(aperture_mask='all')
+        psfc1 = strip_quantity( centroids[0] )
+        psfc2 = strip_quantity( centroids[1] )
+    del centroids
 
     goodpts =  np.isfinite(psfc1) & np.isfinite(psfc2)
 
@@ -388,41 +494,72 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         core_samples_mask = np.full(len(tpf.flux), False)
         core_samples_mask[goodpts] = True
 
+    # --- Select extrema ---
+    um = np.where(core_samples_mask == True)[0]
+    psfc1good = psfc1[um]
+    psfc2good = psfc2[um]
+    # use only the middle 80% of points in time
+    cut1 = int(len(psfc1good)*0.1)
+    cut2 = int(len(psfc1good)*0.9)
+    psfc1good = psfc1good[ cut1 : cut2 ]
+    psfc2good = psfc2good[ cut1 : cut2 ]
+    # Subtract mean to find extrema
+    psfc1good -= np.mean(psfc1good)
+    psfc2good -= np.mean(psfc2good)
+    if not np.all(psfc2good==0):
+        # Use points that are gt 0 to select right side maximum
+        um1 = np.where( psfc2good>0 )[0]
+        # Maximum is at where the distance from the origo is max
+        um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
+        psfmax1 = um[cut1:cut2][um1[um2]]
+        # Use points that are lt 0 to select left side maximum
+        um1 = np.where( psfc2good<0 )[0]
+        # Maximum is at where the distance from the origo is max
+        um2 = np.argmax( np.sqrt(psfc1good[um1]**2 + psfc2good[um1]**2) )
+        psfmax2 = um[cut1:cut2][um1[um2]]
+    else:
+        # if stars do not move by time selected random TPFs to plot
+        psfmax1 = int(0.1*len(psfc1good))
+        psfmax2 = int(0.9*len(psfc1good))
+
     if save_plots or show_plots:
-        fig = plt.figure(figsize=(4.5,5))
+        fig = plt.figure(figsize=(7,5))
 
         gs = gridspec.GridSpec(5, 5)
         ax0 = plt.subplot(gs[1:, 1:])
         ax1 = plt.subplot(gs[0, 1:])
         ax2 = plt.subplot(gs[1:, 0])
 
-        ax0.scatter(psfc1,psfc2,s=5)
-        ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=5,c='r')
+        cb = ax0.scatter(psfc1,psfc2,s=5,c=strip_quantity( tpf.time ),cmap='copper')
+        ax0.scatter(psfc1[np.where(core_samples_mask == False)],psfc2[np.where(core_samples_mask == False)],s=50,c='r',marker='x')
         ax0.yaxis.tick_right()
         ax0.yaxis.set_label_position("right")
-        ax0.set_xlabel('PSF CENTR1',fontsize=14)
-        ax0.set_ylabel('PSF CENTR2',fontsize=14)
+        ax0.set_xlabel('PSF CENTER1')
+        ax0.set_ylabel('PSF CENTER2')
 
-        ax1.scatter( strip_quantity(tpf.time) ,psfc1,s=5)
-        ax1.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=5,c='r')
-        ax1.set_xlabel('BJD',fontsize=14)
-        ax1.set_ylabel('PSF\nCENTR1',fontsize=14)
+        ax1x = ax1.twinx()
+        ax1x.scatter( strip_quantity(tpf.time) ,psfc1,s=5,c=strip_quantity( tpf.time ),cmap='copper')
+        ax1x.scatter( strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,psfc1[np.where(core_samples_mask == False)],s=50,c='r',marker='x')
+        ax1x.set_ylabel('PSF CENTER1')
+        ax1.set_xlabel('Time - 2454833 [BKJD days]')
         ax1.xaxis.tick_top()
         ax1.xaxis.set_label_position('top')
+        ax1.set_yticks([])
 
-        ax2.scatter(psfc2, strip_quantity(tpf.time) ,s=5)
-        ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=5,c='r')
-        ax2.set_xlabel('PSF CENTR2',fontsize=14)
-        ax2.set_ylabel('BJD',fontsize=14)
-        plt.tight_layout()
-        if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png')
+        ax2.scatter(psfc2, strip_quantity(tpf.time) ,s=5,c=strip_quantity( tpf.time ),cmap='copper')
+        ax2.scatter(psfc2[np.where(core_samples_mask == False)], strip_quantity(tpf.time[np.where(core_samples_mask == False)]) ,s=50,c='r',marker='x')
+        ax2.set_ylabel('Time - 2454833 [BKJD days]')
+        ax2.tick_params(axis='x', rotation=45)
+        ax2.set_xlabel('PSF CENTER2')
+        ax2.xaxis.set_label_position("top")
+        if save_plots: plt.savefig(inputfile+'_plots/'+inputfile+'_PSF_centroid.png',dpi=150)
         if show_plots: plt.show()
         plt.close(fig)
 
     print('Optimizing apertures for each cadence')
     # --- Segment targets for each cadence ---
-    countergrid_all = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
-    mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=np.int)
+    countergrid_all = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=int)
+    mask_saturated  = np.zeros_like( strip_quantity(tpf.flux[0]) ,dtype=int)
     for i,tpfdata in tqdm(enumerate(tpf.flux[core_samples_mask]),total=len(tpf.flux[core_samples_mask])):
         # Mask saturated pixels
         with warnings.catch_warnings(record=True) as w:
@@ -436,6 +573,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
                 threshold = photutils.detect_threshold(tpfdata, nsigma=1.8)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None)
                 use_meanstd_threshold = False
+                if segm is None: continue
                 if segm.nlabels==1:
                     # if there is only one target, check if it is a merger of two
                     try: gaia = get_gaia(tpf,magnitude_limit=21)
@@ -465,9 +603,11 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
             elif use_meanstd_threshold:
                 threshold = np.mean(tpfdata)+thresholdsigma*np.std(tpfdata)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None, connectivity=4)
+                if segm is None: continue
             else:
                 threshold = photutils.detect_threshold(tpfdata, nsigma=1.8)
                 segm = photutils.detect_sources(tpfdata, threshold, npixels=1, filter_kernel=None)
+                if segm is None: continue
 
         if i%1000==0:
             if save_plots or show_plots:
@@ -482,7 +622,7 @@ def aperture_prep(inputfile,campaign=None,show_plots=False,save_plots=False):
         # Mask saturated pixels
         countergrid_all[mask_saturated==1] = 0
 
-    return countergrid_all, tpf, len(core_samples_mask), campaignnum
+    return countergrid_all, tpf, len(core_samples_mask), campaignnum, (psfmax1,psfmax2)
 
 
 
@@ -490,17 +630,17 @@ def plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,eachfi
 
     #plt.figure(figsize=(10,3))
     fig = plt.figure()
-    plt.title('Range Of Interest',fontsize=20)
+    plt.title('Range Of Interest')
     plt.plot(numfeatureslist)
     plt.axvline(x=apindex,c='r',alpha=0.5)
 
-    plt.axvspan(ROI[0], ROI[1], alpha=0.2, color='blue')
+    plt.axvspan(ROI[0], ROI[1], alpha=0.3, color='gray')
 
-    plt.xlabel('Threshold',fontsize=20)
-    plt.ylabel('# stars found',fontsize=20)
+    plt.xlabel('Threshold of how many times a pixel has been selected')
+    plt.ylabel('# of identified stars in the AFG')
 
     plt.tight_layout()
-    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_plot_numofstars_vs_threshold'+str(iterationnum)+'.png')
+    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_plot_numofstars_vs_threshold'+str(iterationnum)+'.png',dpi=100)
     if show_plots: plt.show()
     plt.close(fig)
 
@@ -513,7 +653,7 @@ def pixelremoval(gapfilledaperturelist,variableindex):
     return removethesepixels
 
 
-def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,debug=False):
+def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,debug=False,already_checked_aperture=False):
     wehaveajump = False
     for apindex, nfeature in enumerate(numfeatureslist):
         if apindex>ROI[0] and apindex<ROI[1]:
@@ -545,7 +685,10 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,d
                     if debug: print('Backward jump found')
                     apindexfinal = apind
                     backward_jump = True
-            if backward_jump: apindex = apindexfinal
+            if backward_jump:
+                apindex = apindexfinal
+            elif not already_checked_aperture:
+                raise ValueError('Larger upper ROI might be needed')
             if np.sum(apertures)==0:
                 # if too few pixels remaining
                 apindex = int(countergrid_all.max()-1)
@@ -558,11 +701,11 @@ def defineaperture(numfeatureslist,countergrid_all,ROI,filterpassingpicsnum,TH,d
 
 def tpfplot(tpf,apindex,apertures,aps):
 
-    fig = plt.figure()
-    plt.title('Frame: '+str(apindex),fontsize=24)
+    fig = plt.figure(figsize=(6,6))
+    plt.title('Frame: '+str(apindex),fontsize=20)
     # Switch off warnings for nan,inf values
     with warnings.catch_warnings(record=True) as w:
-        plt.pcolormesh(np.log(20+ strip_quantity(tpf.flux[apindex]) ), cmap='viridis')
+        plt.pcolormesh(np.log10(20+ strip_quantity(tpf.flux[apindex]) ), cmap='viridis')
 
     filtered=apdrawer(apertures*1)
     for x in range(len(filtered)):
@@ -573,8 +716,71 @@ def tpfplot(tpf,apindex,apertures,aps):
             cords=np.where(x==aps)
             plt.text(cords[1][0],cords[0][0],str(x),fontsize=30)
 
+    img_extent = (
+    tpf.column,
+    tpf.column + tpf.shape[2],
+    tpf.shape[2],
+    tpf.row,
+    tpf.row + tpf.shape[1],
+    tpf.shape[1]
+    )
+
+    plt.xticks(np.arange(img_extent[2]) +0.5 , np.arange(img_extent[0],img_extent[1]))
+    plt.yticks(np.arange(img_extent[5]) +0.5 , np.arange(img_extent[3],img_extent[4]))
+
     #if show_plots: plt.show()
     return fig
+
+
+def tpfplot_at_extrema(tpf,apindexes,apertures,aps):
+    from matplotlib.gridspec import GridSpec
+
+    fig = plt.figure(figsize=(13,6))
+
+    gs  = GridSpec(1,17,figure=fig)
+    ax1 = plt.subplot(gs[:8])
+    ax2 = plt.subplot(gs[8:-1])
+    axcbar = plt.subplot(gs[-1])
+    axs = [ax1,ax2]
+    axs[0].set_title('Frame: '+str(apindexes[0]))
+    axs[1].set_title('Frame: '+str(apindexes[1]))
+    # Switch off warnings for nan,inf values
+    with warnings.catch_warnings(record=True) as w:
+        axs[0].pcolormesh(np.log10(20+ strip_quantity(tpf.flux[apindexes[0]]) ), cmap='viridis')
+        cb = axs[1].pcolormesh(np.log10(20+ strip_quantity(tpf.flux[apindexes[1]]) ), cmap='viridis')
+
+    plt.colorbar(cb, cax = axcbar, label='log(Calibrated Flux)')
+
+    #filtered=apdrawer(apertures*1)
+    #for x in range(len(filtered)):
+    #    axs[0].plot(filtered[x][0],filtered[x][1],c='red', linewidth=8)
+
+    if aps is not None:
+        for x in range(1,np.max(aps)+1):
+            cords=np.where(x==aps)
+            axs[0].text(cords[1][0],cords[0][0],str(x),fontsize=20,color='w')
+            axs[1].text(cords[1][0],cords[0][0],str(x),fontsize=20,color='w')
+
+    img_extent = (
+    tpf.column,
+    tpf.column + tpf.shape[2],
+    tpf.shape[2],
+    tpf.row,
+    tpf.row + tpf.shape[1],
+    tpf.shape[1]
+    )
+
+    axs[0].set_xticks(np.arange(img_extent[2]) +0.5)
+    axs[0].set_xticklabels(np.arange(img_extent[0],img_extent[1]) )
+    axs[0].set_yticks(np.arange(img_extent[5]) +0.5)
+    axs[0].set_yticklabels(np.arange(img_extent[3],img_extent[4]) )
+    axs[1].set_xticks(np.arange(img_extent[2]) +0.5)
+    axs[1].set_xticklabels(np.arange(img_extent[0],img_extent[1]) )
+    axs[1].set_yticks(np.arange(img_extent[5]) +0.5)
+    axs[1].set_yticklabels(np.arange(img_extent[3],img_extent[4]) )
+
+    #if show_plots: plt.show()
+    return fig,axs
 
 
 def apgapfilling(aperture):
@@ -642,8 +848,11 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
     max_powers   = []
 
     nrows = len(lclist)
-    fig,axs = plt.subplots(nrows,1,figsize=(12,2*nrows),squeeze=False)
+    fig,axs = plt.subplots(nrows,2,figsize=(24,2*nrows),squeeze=False)
     for ii,lc in enumerate(lclist):
+
+        # Get rid of distant outliers
+        lc = lc.remove_outliers(sigma=10).remove_nans()
 
         # First, remove a trend
         ls =  LombScargle(lc.time, lc.flux)
@@ -666,13 +875,20 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
             umcut = np.where( np.logical_and(frequency>(jj+1)*sixhourspeak-3*df,frequency<(jj+1)*sixhourspeak+3*df )  )
             power[umcut]     = np.nan
 
-        axs[ii,0].plot(frequency, power,label='Target %d' % (ii+1))
-        axs[ii,0].set_xlabel('Frequency',fontsize=20)
-        axs[ii,0].set_ylabel('Power',fontsize=20)
+        # --- Plot spectrum ---
+        axs[ii,1].plot(frequency, power,label='Target %d' % (ii+1))
+        axs[ii,1].set_xlabel('Frequency')
+        axs[ii,1].set_ylabel('Power')
         #plt.xlim([0, nyquist/2])
         #plt.xlim([2/lclist[q].time.ptp(), nyquist/2])
-        axs[ii,0].set_ylim(bottom=0)
-        axs[ii,0].legend()
+        axs[ii,1].set_ylim(bottom=0)
+        axs[ii,1].legend()
+
+        # --- Plot light curve ---
+        axs[ii,0].plot( strip_quantity(lc.time) , strip_quantity(lc.flux) )
+        axs[ii,0].title.set_text('Target '+str(ii+1))
+        axs[ii,0].set_xlabel('Time - 2454833 [BKJD days]')
+        axs[ii,0].set_ylabel('Flux')
 
         with warnings.catch_warnings(record=True) as w:
 
@@ -686,7 +902,7 @@ def which_one_is_a_variable(lclist,iterationnum,eachfile,show_plots=False,save_p
         max_powers.append(np.nanmax(power))
     #plt.ylim([-0.1,0.8])
     plt.tight_layout()
-    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_Frequencyspace_iterationnum_'+str(iterationnum)+'.png')
+    if save_plots: plt.savefig(eachfile+'_plots/'+eachfile+'_lc_spectrum_iterationnum_'+str(iterationnum)+'.png')
     if show_plots: plt.show()
     plt.close(fig)
 
@@ -718,45 +934,75 @@ def CreateMaskCorona(mask):
 
     return mask_placeholder
 
-def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initialmask,tpf,
+def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,initialmask,tpf,
                                targettpf='',
                                save_plots=False,
                                show_plots=False,
                                debug=False):
 
+    goodpts = np.isfinite(strip_quantity(lclist[variableindex].flux))
+    t = lclist[variableindex].time[goodpts]
+    y = lclist[variableindex].flux[goodpts]
+    freq,power = LombScargle(t,y).autopower(normalization='psd',
+                                            nyquist_factor=0.8,
+                                            minimum_frequency=0.05,
+                                            samples_per_peak=50)
+
+    testf = freq[np.argmax(power)]
+
+    # If test period is larger than data length, remove linear
+    if testf <= 1/np.ptp(t):
+        y -= np.poly1d(np.polyfit(t,y,1))(t)
+
+        freq,power = LombScargle(t,y).autopower(normalization='psd',
+                                                nyquist_factor=0.8,
+                                                minimum_frequency=0.05,
+                                                samples_per_peak=50)
+
+        testf = freq[np.argmax(power)]
+
+        # If period is still larger than data length
+        if testf <= 1/np.ptp(t):
+            testf = 1/np.ptp(t)
+
+    del goodpts,t,y,freq,power
+
     newfinallc = None
 
     initialcdpp = strip_quantity(lclist[variableindex].estimate_cdpp())
-    print('Initial CDPP=',  initialcdpp)
+    initialPDM  = PDM_theta(lclist[variableindex],testf)
+    print('Initial CDPP & PDM theta=',  initialcdpp, initialPDM)
 
-    #initialmaskall = np.sum(initialmask, axis=0, dtype=np.bool)
-    initialmask = np.sum(initialmask, axis=0, dtype=np.bool)
-    #initialmask = gapfilledaperturelist[variableindex]
+    #initialmaskall = np.sum(initialmask, axis=0, dtype=bool)
+    #initialmask = np.sum(initialmask, axis=0, dtype=bool)
+    # Let's check adjacent star's aperture as well
+    initialmask = gapfilledaperturelist[variableindex]
 
     # Append 1-pixel-width corona to aperture
     newcorona = CreateMaskCorona(gapfilledaperturelist[variableindex])
 
-    newcorona[initialmask] = False
+    newcorona[initialmask] = False # Remove initial aperture
     #newcorona[gapfilledaperturelist[variableindex]] = False
     umcorona = np.where(newcorona)
 
     # Loop over the pixels in corona and calculate CDPP for each extended aperture
     cdpp_list = []
     cdpp_ij_list = []
+    PDMtheta_list = []
     for ii,jj in zip(umcorona[0],umcorona[1]):
 
         if gapfilledaperturelist[variableindex][ii,jj]:
             # Do not check again the already existing mask
             continue
 
-        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        newmask = np.full_like(newcorona,False,dtype=bool)
         newmask[gapfilledaperturelist[variableindex]] = True
         newmask_nocorona = newmask.copy()
         newmask[ ii,jj ] = True
 
-        if show_plots:
-            print('Checking CDPP with +1 pixel from corona (dashed orange)')
-            fig = tpfplot(tpf,0,initialmask,None)
+        if debug:
+            print('Checking CDPP with +1 pixel adjacent pixels (dashed orange)')
+            fig = tpfplot(tpf,tpf.shape[0]//2,initialmask,None)
             filtered=apdrawer(newmask*1)
             for x in range(len(filtered)):
                 plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
@@ -768,46 +1014,84 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
 
         newlc = tpf.to_lightcurve(aperture_mask=newmask)
         lccdpp = strip_quantity(newlc.estimate_cdpp())
-        if debug: print('New CDPP =', lccdpp )
+        lcPDM  = PDM_theta(newlc,testf)
+        if debug: print('New CDPP & PDM theta =', lccdpp, lcPDM )
 
         cdpp_list.append( strip_quantity(lccdpp) )
         cdpp_ij_list.append( [ii,jj] )
+        PDMtheta_list.append( lcPDM )
 
-        if show_plots:
+        if debug:
+            lc2plot = lclist[variableindex].copy()
+            lc2plot = lc2plot.remove_outliers(10).remove_nans()
+            lc2plot2 = newlc.copy()
+            lc2plot2 = lc2plot2.remove_outliers(10).remove_nans()
+
             fig,axs = plt.subplots(2,1,figsize=(20,8))
-            axs[0].plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
-            axs[0].set_xlabel('Time')
+            axs[0].plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
+            axs[0].set_xlabel('Time - 2454833 [BKJD days]')
             axs[0].set_ylabel('Flux')
-            axs[0].set_title('The lc which is identified as a variable')
+            axs[0].set_title('The light curve of the variable star')
 
-            axs[1].plot( strip_quantity(newlc.time) , strip_quantity(newlc.flux) ,c='k')
-            axs[1].set_xlabel('Time')
+            axs[1].plot( strip_quantity(lc2plot2.time) , strip_quantity(lc2plot2.flux) ,c='k')
+            axs[1].set_xlabel('Time - 2454833 [BKJD days]')
             axs[1].set_ylabel('Flux')
-            axs[1].set_title('The lc after adding +1 pixel from corona')
+            axs[1].set_title('The light curve after adding +1 adjacent pixel')
             plt.tight_layout()
             if show_plots: plt.show()
             plt.close(fig)
 
-    cdpp_list = np.array(cdpp_list)
-    if debug:
-        plt.title('CDPPs after adding +1-1 pixels from corona')
-        plt.plot(cdpp_list)
-        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
-        plt.axhline(initialcdpp-3*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
-        plt.xlabel('Final aperture + 1 pixel from corona')
-        plt.ylabel('CDPP')
-        plt.legend()
-        plt.show()
+            del lc2plot
+            del lc2plot2
 
-    # Check if new aperture's CDPP is better with at least 3-sigma
+    cdpp_list = np.array(cdpp_list)
+    PDMtheta_list = np.array(PDMtheta_list)
+
+    # Check if new aperture's CDPP and PDM theta is better with at least 2.5-sigma
+    append_pixels = False
     if len(cdpp_list) > 0:
         bestcdpp = np.argmin(cdpp_list)
-    if len(cdpp_list)>0 and cdpp_list[bestcdpp] < initialcdpp-3*np.std(cdpp_list):
-        print('Extending aperture with new CDPP=',cdpp_list[bestcdpp])
+        bestPDM  = np.argmin(PDMtheta_list)
+    if len(cdpp_list)>0 and cdpp_list[bestPDM] < initialcdpp-2.5*np.std(cdpp_list) and PDMtheta_list[bestPDM] <= initialPDM:
+        # Check at lowest PDM theta
+        append_pixels = True
+        bestat = bestPDM
+    elif len(cdpp_list)>0 and PDMtheta_list[bestPDM] < initialPDM-3.0*np.std(PDMtheta_list) and cdpp_list[bestPDM] < initialcdpp:
+        # Check at lowest PDM theta if theta has a significant lower point
+        append_pixels = True
+        bestat = bestPDM
+    elif len(cdpp_list)>0 and cdpp_list[bestcdpp] < initialcdpp-2.5*np.std(cdpp_list) and PDMtheta_list[bestcdpp] <= initialPDM:
+        # Check at lowest CDPP
+        append_pixels = True
+        bestat = bestcdpp
+    elif len(cdpp_list)>0 and cdpp_list[bestPDM] < initialcdpp and PDMtheta_list[bestPDM] < initialPDM:
+        # Check at lowest PDM theta
+        append_pixels = True
+        bestat = bestPDM
+
+    if debug:
+        plt.title('CDPPs after adding +1-1 pixels from adjacent pixels')
+        plt.plot(cdpp_list)
+        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
+        plt.axhline(initialcdpp-2.5*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
+        if append_pixels: plt.axvline(bestat,c='g',zorder=0)
+        plt.xlabel('Final aperture + 1 pixel adjacent pixels')
+        plt.ylabel('CDPP')
+        plt.legend()
+        ax2 = plt.twinx()
+        ax2.plot(PDMtheta_list,c='C1')
+        ax2.set_ylabel('PDM theta')
+        plt.axhline(initialPDM,c='C1',zorder=0,alpha=0.5)
+        ax2.axhline(initialPDM-3*np.std(PDMtheta_list),c='C1',alpha=0.5,zorder=0,ls='--')
+        ax2.yaxis.label.set_color('C1')
+        plt.show()
+
+    if append_pixels:
+        print('Extending aperture with new CDPP & PDM theta',cdpp_list[bestat],PDMtheta_list[bestat])
         newmask_pixels = []
 
-        i0,j0 = cdpp_ij_list[bestcdpp]
-        #umcorona[0][bestcdpp], umcorona[1][bestcdpp]
+        i0,j0 = cdpp_ij_list[bestat]
+        #umcorona[0][bestat], umcorona[1][bestat]
         newmask_pixels.append([i0,j0])
 
         # If additional pixel is from another star do not add more pixels
@@ -817,50 +1101,60 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         # Get location of adjacents pixels of the best additional pixel
         adjacent_pixels = np.where( (np.abs(umcorona[0]-i0)<=1) & (np.abs(umcorona[1]-j0)<=1) )[0]
 
-        # Check if adding additional adjacents pixel(s) improve the CDPP
+        # Check if adding additional adjacents pixel(s) improve the CDPP and PDM theta
         for adjpix in adjacent_pixels:
             iadj = umcorona[0][adjpix]
             jadj = umcorona[1][adjpix]
 
-            newmask = np.full_like(newcorona,False,dtype=np.bool)
+            newmask = np.full_like(newcorona,False,dtype=bool)
             newmask[ iadj,jadj ] = True
             newmask[ i0,j0 ] = True
             newmask[gapfilledaperturelist[variableindex]] = True
 
             newlc = tpf.to_lightcurve(aperture_mask=newmask)
             lccdpp = strip_quantity(newlc.estimate_cdpp())
+            lcPDM  = PDM_theta(newlc,testf)
 
-            if lccdpp < cdpp_list[bestcdpp]:
-                if debug: print('Adding another pixel to new aperture with new cdpp=',lccdpp)
+            if lccdpp < cdpp_list[bestat] and lcPDM <= PDMtheta_list[bestat]:
+                if debug: print('Adding another pixel to new aperture with new CDPP & PDM theta =',lccdpp,lcPDM)
                 newmask_pixels.append([iadj,jadj])
 
-        newmask = np.full_like(newcorona,False,dtype=np.bool)
+        newmask = np.full_like(newcorona,False,dtype=bool)
         for (ii,jj) in newmask_pixels:
             newmask[ ii,jj ] = True
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True
 
-        newmask = apgapfilling(newmask).astype(np.bool)
+        # Get lc with filled new aperture
+        newmask = apgapfilling(newmask).astype(bool)
         newmask[initialmask] = False
         newmask[gapfilledaperturelist[variableindex]] = True
 
         newfinallc = tpf.to_lightcurve(aperture_mask=newmask)
 
         if save_plots or show_plots:
-            fig,axs = plt.subplots(2,1,figsize=(20,8))
-            axs[0].plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
-            axs[0].set_xlabel('Time')
-            axs[0].set_ylabel('Flux')
-            axs[0].set_title('The lc which is identified as a variable')
+            lc2plot = lclist[variableindex].copy()
+            lc2plot = lc2plot.remove_outliers(10).remove_nans()
+            lc2plot2 = newfinallc.copy()
+            lc2plot2 = lc2plot2.remove_outliers(10).remove_nans()
 
-            axs[1].plot( strip_quantity(newfinallc.time) ,strip_quantity(newfinallc.flux) ,c='k')
-            axs[1].set_xlabel('Time')
+            fig,axs = plt.subplots(2,1,figsize=(20,8))
+            axs[0].plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
+            axs[0].set_xlabel('Time - 2454833 [BKJD days]')
+            axs[0].set_ylabel('Flux')
+            axs[0].set_title('The light curve of the variable star')
+
+            axs[1].plot( strip_quantity(lc2plot2.time) ,strip_quantity(lc2plot2.flux) ,c='k')
+            axs[1].set_xlabel('Time - 2454833 [BKJD days]')
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The lc after aperture size optimization')
             plt.tight_layout()
             if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_after_CDPP_correction.png')
             if show_plots: plt.show()
             plt.close(fig)
+
+            del lc2plot
+            del lc2plot2
 
             fig = tpfplot(tpf,0,initialmask,None)
             filtered=apdrawer(newmask*1)
@@ -878,7 +1172,9 @@ def optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,initia
         # Update final lc with the newly extended one
         lclist[variableindex] = newfinallc
 
-    return lclist
+        return lclist, newmask
+
+    return lclist, gapfilledaperturelist[variableindex]
 
 
 def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
@@ -887,7 +1183,7 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     rownums = np.arange( tpf.row,    tpf.row   +tpf.shape[1])
 
     fig = plt.figure(figsize=( len(colnums)//2 , len(rownums)//2 ))
-    plt.imshow(afg,cmap='viridis',origin='lower')
+    plt.imshow(afg,cmap='copper',origin='lower')
 
     plt.xticks(np.arange(len(colnums)) , colnums)
     plt.yticks(np.arange(len(rownums)) , rownums)
@@ -905,47 +1201,25 @@ def afgdrawer(afg,filename, tpf,show_plots=False,save_plots=False):
     plt.title("Aperture frequency grid",fontsize=20)
     plt.tight_layout()
 
-    if save_plots: plt.savefig(filename+'.png')
+    if save_plots: plt.savefig(filename+'.png',dpi=150)
     if show_plots: plt.show()
     plt.close(fig)
 
-def splinecalc(time,flux,window_length=20,sigma_lower=3,sigma_upper=3):
-    from wotan import flatten,slide_clip
-    from numpy import nanmean
-
-    clipped_flux = slide_clip(time,flux,
-        window_length=window_length,
-        low=sigma_lower,
-        high=sigma_upper,
-        method='mad',
-        center='median'
-        )
-
-    splinedLC, trendLC = flatten(time, clipped_flux,
-                            method='rspline',
-                            window_length=window_length,
-                            return_trend=True,
-                            break_tolerance=0,
-                            edge_cutoff=False)
-
-    # Contamination is additive, must be subtracted!
-    splinedLC = flux-trendLC
-    splinedLC += nanmean(flux)
-
-    return splinedLC, trendLC
-
-def outlier_correction_before_k2sc(lc,outlier_ratio=2.0):
+def outlier_correction_before_k2sc(lc,max_missing_pos_corr=10,force_pos_corr=False):
+    pos_corr_used = False
     try:
-         # --- Use POS_CORR if possible ---
+        # --- Use POS_CORR if possible ---
         x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
         nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
 
         # --- Use Centroid if there are too many missing values ---
-        if np.sum(np.isfinite(x))/np.sum(np.isfinite(strip_quantity(lc.time)))*100 > outlier_ratio or \
-        np.sum(np.isfinite(y))/np.sum(np.isfinite(strip_quantity(lc.time)))*100 > outlier_ratio or \
+        if np.sum(~np.isfinite(x)) > max_missing_pos_corr or \
+        np.sum(~np.isfinite(y)) > max_missing_pos_corr or \
         np.sum(np.isfinite(x) & np.isfinite(y))==0:
             goodposcorr = np.sum(np.isfinite(x) & np.isfinite(y))
             raise ValueError
+
+        pos_corr_used = True
     except:
         x, y = strip_quantity(lc.centroid_col), strip_quantity(lc.centroid_row)
         nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
@@ -955,9 +1229,50 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0):
             x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
             nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
 
-    lc = lc.copy()[nm]
+            pos_corr_used = True
 
-    return lc
+    if force_pos_corr:
+        x, y = strip_quantity(lc.pos_corr1), strip_quantity(lc.pos_corr2)
+        nm = np.isfinite(strip_quantity(lc.time)) & np.isfinite(x) & np.isfinite(y)
+
+        pos_corr_used = True
+
+    lc = lc.copy()[nm]
+    lc.pos_corr1 = lc.pos_corr1[nm]
+    lc.pos_corr2 = lc.pos_corr2[nm]
+
+    return lc, pos_corr_used
+
+def weights(err):
+    """ generate observation weights from uncertainties """
+    w = np.power(err, -2)
+    return w/sum(w)
+
+def PDM_theta(lc,testf):
+    """ Returns PDM theta at given frequency """
+
+    x = strip_quantity(lc.time)
+    y = strip_quantity(lc.flux)
+    yerr = strip_quantity(lc.flux_err)
+
+    goodpts = np.isfinite(y) & np.isfinite(yerr)
+    x = x[goodpts]
+    y = y[goodpts]
+    yerr = yerr[goodpts]
+
+    w = weights( yerr )
+
+    kind='binned_linterp'
+
+    with warnings.catch_warnings(record=True) as warnmessage:
+        testf = np.atleast_1d(testf)
+        x     = np.asarray(x,dtype=np.floating)
+        y     = np.asarray(y,dtype=np.floating)
+        testf = np.asarray(testf,dtype=np.floating)
+        w     = np.asarray(w,dtype=np.floating)
+        pows = PDM.PDM(x, y, w, testf, kind=kind, nbins=50, dphi=0.05)
+
+    return (1 - pows)[0]
 
 ################
 # Main function
@@ -965,8 +1280,8 @@ def outlier_correction_before_k2sc(lc,outlier_ratio=2.0):
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
-                        window_length=20, sigma_lower=3, sigma_upper=3,
-                        outlier_ratio=2.0,
+                        polyorder='auto', sigma_detrend=10,
+                        max_missing_pos_corr=10,
                         TH=8, ROI_lower=100, ROI_upper=0.85,
                         debug=False, **kwargs):
     """
@@ -998,22 +1313,18 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         If `True` all the plots will be displayed.
     save_plots: bool, default: False
         If `True` all the plots will be saved to a subdirectory.
-    window_length: int or float, default: 20
-        The length of filter window for spline correction given in days. Applies
-        only if ``remove_spline`` is `True`.
-    sigma_lower: int or float, default: 3
-        The number of standard deviations to use as the lower bound for sigma
+    polyorder : int or 'auto', default: 'auto'
+        The order of the detrending polynomial. Applies only
+        if ``remove_spline`` is `True`.
+    sigma_detrend: float, default: 10
+        The number of standard deviations to use for sigma
         clipping limit before spline correction. Applies only
         if ``remove_spline`` is `True`.
-    sigma_upper: int or float, default: 3
-        The number of standard deviations to use as the upper bound for sigma
-        clipping limit before spline correction. Applies only
-        if ``remove_spline`` is `True`.
-    outlier_ratio: float, default: 2
-        Missing value threshold in % below which position correction values
-        (POS_CORR) are used for K2SC. Missing POS_CORR values will reduce the
-        light curve points! Otherwise, less reliable photometrically estimated
-        centroids will be used.
+    max_missing_pos_corr: int, default: 10
+        Maximum number of missing position correction (POS_CORR) values.
+        If too many POS_CORR is missing, then less reliable photometrically
+        estimated centroids will be used for K2SC. Missing POS_CORR values
+        reduce the number of light curve points!
     TH : int or float, default: 8
         Threshold to segment each target in each TPF candence. Only used if
         targets cannot be separated normally. Do not change this value unless
@@ -1062,7 +1373,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         raise ValueError('Campaign number must be integer, float or None')
 
     # --- Loop over each image and detect stars for each of them separatly ---
-    countergrid_all, tpf, filterpassingpicsnum, campaignnum = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
+    countergrid_all, tpf, filterpassingpicsnum, campaignnum, psf_extrema = aperture_prep(targettpf,campaign=campaign,show_plots=show_plots,save_plots=save_plots)
 
     # --- Add underscores to output filenames ---
     targettpf = str(targettpf).replace(' ','_')
@@ -1090,8 +1401,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             numfeatureslist.append(num_features)
 
         # --- Separate stars and define one aperture for each star ---
-        ROI=[ROI_lower, len(tpf.flux)*ROI_upper]
-        apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
+        try:
+            ROI=[ROI_lower, len(tpf.flux)*ROI_upper]
+            apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,debug=debug)
+        except ValueError:
+            if debug: print("Larger upper ROI might be needed! Checking...")
+            ROI=[ROI_lower, len(tpf.flux)*(ROI_upper+0.05)]
+            apertures, extensionprospects, apindex = defineaperture(numfeatureslist,countergrid_all, ROI, filterpassingpicsnum, TH,
+                                                                    debug=debug,already_checked_aperture=True)
 
         if save_plots or show_plots:
             plot_numofstars_vs_threshold(numfeatureslist,iterationnum,ROI,apindex,targettpf,show_plots=show_plots,save_plots=save_plots)
@@ -1131,52 +1448,45 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             gapfilledaperturelist_initial = gapfilledaperturelist.copy()
 
         if save_plots or show_plots:
-            from itertools import cycle
-            fig = tpfplot(tpf,apindex,apertures,aps)
+            fig,axs = tpfplot_at_extrema(tpf,psf_extrema,apertures,aps)
 
-            colors=cycle(['black','yellow','green','blue','cyan','magenta','white'])
-            for i, (ithap,color) in enumerate( zip(gapfilledaperturelist,colors)  ):
+            for ithap in gapfilledaperturelist:
                 filtered=apdrawer(ithap*1)
                 for x in range(len(filtered)):
-                    plt.plot(filtered[x][0],filtered[x][1],c=color,linewidth=4)
+                    axs[0].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
+                    axs[1].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
 
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_iternum_'+str(iterationnum)+'.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_iteration_'+str(iterationnum)+'.png',dpi=200)
             if show_plots: plt.show()
             plt.close(fig)
 
         # ----------------------------
         # Perform photometry on each target
         # ----------------------------
-        fig,axs = plt.subplots(np.max(aps),1,figsize=(12,np.max(aps)*2),squeeze=False)
         lclist=[]
         for x in range(np.max(aps)):
             lc=tpf.to_lightcurve(aperture_mask=gapfilledaperturelist[x])
             lclist.append(lc)
 
-            axs[x,0].plot( strip_quantity(lc.time) , strip_quantity(lc.flux) )
-            axs[x,0].title.set_text('Target '+str(x+1))
-            axs[x,0].set_xlabel('Time',fontsize=20)
-            axs[x,0].set_ylabel('Flux',fontsize=20)
-        plt.tight_layout()
-        if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_iternum_'+str(iterationnum)+'.png')
-        if show_plots: plt.show()
-        plt.close(fig)
-
         # --- Get index of variable star's aperture ---
         variableindex = which_one_is_a_variable(lclist,iterationnum,targettpf,show_plots=show_plots,save_plots=save_plots)
 
         if save_plots or show_plots:
+            lc2plot = lclist[variableindex].copy()
+            lc2plot = lc2plot.remove_outliers(10).remove_nans()
 
-            fig = plt.figure(figsize=(20,4))
-            plt.plot( strip_quantity(lclist[variableindex].time) , strip_quantity(lclist[variableindex].flux) ,c='k')
-            plt.xlabel('Time')
+            fig = plt.figure(figsize=(12,5))
+            plt.plot( strip_quantity(lc2plot.time) , strip_quantity(lc2plot.flux) ,c='k')
+            plt.xlabel('Time - 2454833 [BKJD days]')
             plt.ylabel('Flux')
-            plt.title('The lc which is identified as a variable')
+            plt.title('The light curve of the variable star')
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_which_is_variable_iternum_'+str(iterationnum)+'.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_which_is_variable_iteration_'+str(iterationnum)+'.png',dpi=150)
             if show_plots: plt.show()
             plt.close(fig)
+
+            del lc2plot
 
         if extensionprospects:
             # ------------------------------------------------------
@@ -1200,11 +1510,27 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             # Optimizing final aperture by checking CDPP for different aperture sizes
             # -----------------------------------------------------------------------
             print('Optimizing final aperture')
-            lslist = optimize_aperture_wrt_CDPP(lclist,variableindex,gapfilledaperturelist,gapfilledaperturelist_initial,tpf,
-                                                targettpf=targettpf,
-                                                save_plots=save_plots,
-                                                show_plots=show_plots,
-                                                debug=debug)
+            lslist, finalmask = optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,
+                                                               gapfilledaperturelist_initial,tpf,
+                                                               targettpf=targettpf,
+                                                               save_plots=save_plots,
+                                                               show_plots=show_plots,
+                                                               debug=debug)
+
+            if save_plots or show_plots:
+                if show_plots: print("Final aperture:")
+                fig,axs = tpfplot_at_extrema(tpf,psf_extrema,apertures,None)
+
+                filtered=apdrawer(finalmask*1)
+                for x in range(len(filtered)):
+                    axs[0].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
+                    axs[1].plot(filtered[x][0],filtered[x][1],c='k',linewidth=4)
+
+                plt.tight_layout()
+                if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_final_aperture.png',dpi=200)
+                if show_plots: plt.show()
+                plt.close(fig)
+
 
             if apply_K2SC:
                 # --------------------
@@ -1216,11 +1542,12 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 lclist[variableindex].pos_corr1 = tpf.hdu[1].data['POS_CORR1'][tpf.quality_mask]
                 lclist[variableindex].pos_corr2 = tpf.hdu[1].data['POS_CORR2'][tpf.quality_mask]
 
-                lclist[variableindex] = outlier_correction_before_k2sc(lclist[variableindex],outlier_ratio=outlier_ratio)
+                lclist[variableindex],pos_corr_used = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr)
 
                 lclist[variableindex].primary_header = tpf.hdu[0].header
                 lclist[variableindex].data_header = tpf.hdu[1].header
-                lclist[variableindex].__class__ = k2sc_lc
+                with warnings.catch_warnings(record=True) as w:
+                    lclist[variableindex].__class__ = k2sc_lc
 
                 period, fap = psearch( strip_quantity(lclist[variableindex].time) ,
                                     strip_quantity(lclist[variableindex].flux),
@@ -1228,15 +1555,119 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                     max_p=strip_quantity(lclist[variableindex].time).ptp()/2)
                 print('Proposed period for periodic kernel is %.2f' % period)
 
-                lclist[variableindex].k2sc(campaign=campaignnum,
-                                       kernel='quasiperiodic',
-                                       kernel_period=period,
-                                       outlier_ratio=outlier_ratio, **kwargs)
+                try:
+                    # Apply K2SC
+                    with warnings.catch_warnings(record=True) as w:
+                        lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               max_missing_pos_corr=max_missing_pos_corr, **kwargs)
+                except np.linalg.LinAlgError:
+                    try:
+                        # If K2SC fails, force the usage of POS_CORR w/ usually less useful points
+                        lclist[variableindex],pos_corr_used = outlier_correction_before_k2sc(lclist[variableindex],
+                                                                               max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
+                        with warnings.catch_warnings(record=True) as w:
+                            lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               max_missing_pos_corr=max_missing_pos_corr,
+                                               force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError:
+                        from lightkurve.utils import LightkurveWarning
+                        warnings.warn('K2SC failed! Returning raw EAP photometry!',
+                                      LightkurveWarning)
+
+                        lclist[variableindex].corr_flux = lclist[variableindex].flux
+
                 if not hasattr(lclist[variableindex],'tr_time'):
                     from lightkurve.utils import LightkurveWarning
                     # No useful POS_COR or Centroid points (probably Campaign 101)
-                    warnings.warn('No useful POS_COR or Centroid points (probably Campaign 101)\nReturning raw EAP photometry!',
+                    warnings.warn('No useful POS_COR or Centroid points (probably Campaign 91, 101 or 111)\nReturning raw EAP photometry!',
                                   LightkurveWarning)
+
+                # If MAD after K2SC is very low (variation removed) or too high (outliers) force POS_CORR instead
+                if debug: print('MAD:',median_abs_deviation(lclist[variableindex].flux) , median_abs_deviation(lclist[variableindex].corr_flux) )
+                pol = np.poly1d(np.polyfit(lclist[variableindex].time,lclist[variableindex].corr_flux,2))(lclist[variableindex].time)
+                if (median_abs_deviation(lclist[variableindex].corr_flux) < 0.6*median_abs_deviation(lclist[variableindex].flux) or \
+                    median_abs_deviation(lclist[variableindex].corr_flux) > 1.5*median_abs_deviation(lclist[variableindex].flux)) \
+                    and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used \
+                    and ~np.all(np.isnan(lclist[variableindex].pos_corr1)):
+
+                    lcbackup = lclist[variableindex].copy()
+
+                    lclist[variableindex],_ = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
+                    try:
+                        # Apply K2SC
+                        with warnings.catch_warnings(record=True) as w:
+                            lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               max_missing_pos_corr=max_missing_pos_corr,
+                                               force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError as err:
+                        # If still "leading minor not positive definite" reduce DE time
+                        try:
+                            with warnings.catch_warnings(record=True) as w:
+                                lclist[variableindex].k2sc(campaign=campaignnum,
+                                                   kernel='quasiperiodic',
+                                                   kernel_period=period,
+                                                   max_missing_pos_corr=max_missing_pos_corr,
+                                                   force_pos_corr=True,
+                                                   de_max_time=1, **kwargs)
+                        except:
+                            lclist[variableindex] = lcbackup
+
+                    finally:
+                        # If CENTROID gives the same MAD as POS_CORR,
+                        # AND POS_CORR has much less points, use CENTROID because more points
+                        MADbefore = median_abs_deviation(lcbackup.corr_flux)
+                        MADafter = median_abs_deviation(lclist[variableindex].corr_flux)
+                        if MADafter*1.1 > MADbefore and MADbefore > MADafter*0.9 and \
+                        lcbackup.time.shape[0] - lclist[variableindex].time.shape[0] > 50:
+                            lclist[variableindex] = lcbackup
+
+                        del lcbackup
+
+                # If MAD of corr_flux minus 2nd order polynomial is very low (i.e. just a noise trend remains) use pos_corr
+                elif median_abs_deviation(lclist[variableindex].corr_flux-pol) < 0.65*median_abs_deviation(lclist[variableindex].flux) \
+                    and hasattr(lclist[variableindex],'tr_time') and not pos_corr_used \
+                    and ~np.all(np.isnan(lclist[variableindex].pos_corr1)):
+
+                    lcbackup = lclist[variableindex].copy()
+
+                    lclist[variableindex],_ = outlier_correction_before_k2sc(lclist[variableindex],max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=True)
+                    try:
+                        # Apply K2SC
+                        with warnings.catch_warnings(record=True) as w:
+                            lclist[variableindex].k2sc(campaign=campaignnum,
+                                               kernel='quasiperiodic',
+                                               kernel_period=period,
+                                               max_missing_pos_corr=max_missing_pos_corr,
+                                               force_pos_corr=True, **kwargs)
+                    except np.linalg.LinAlgError as err:
+                        # If still "leading minor not positive definite" reduce DE time
+                        try:
+                            with warnings.catch_warnings(record=True) as w:
+                                lclist[variableindex].k2sc(campaign=campaignnum,
+                                                   kernel='quasiperiodic',
+                                                   kernel_period=period,
+                                                   max_missing_pos_corr=max_missing_pos_corr,
+                                                   force_pos_corr=True,
+                                                   de_max_time=1, **kwargs)
+                        except:
+                            lclist[variableindex] = lcbackup
+
+                    finally:
+                        # If CENTROID - polynomial gives the same MAD as POS_CORR,
+                        # AND POS_CORR has much less points, use CENTROID because more points
+                        MADbefore = median_abs_deviation(lcbackup.corr_flux-pol)
+                        MADafter = median_abs_deviation(lclist[variableindex].corr_flux)
+                        if MADafter*1.1 > MADbefore and MADbefore > MADafter*0.9 and \
+                        lcbackup.time.shape[0] - lclist[variableindex].time.shape[0] > 50:
+                            lclist[variableindex] = lcbackup
+
+                        del lcbackup
 
                 # --- Removing outliers before saving light curve (or removing spline) ---
                 lclist[variableindex], badpts   = lclist[variableindex].remove_outliers(return_mask=True)
@@ -1246,7 +1677,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     fig = plt.figure(figsize=(20,4))
                     plt.plot( strip_quantity(lclist[variableindex].time) ,lclist[variableindex].corr_flux)
                     plt.title('K2SC corrected lc for '+targettpf)
-                    plt.xlabel('Time')
+                    plt.xlabel('Time - 2454833 [BKJD days]')
                     plt.ylabel('Flux')
                     plt.tight_layout()
                     if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_k2sc_lc_plot.png')
@@ -1256,12 +1687,17 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 if remove_spline:
                     # --- Remove spline from K2SC corrected light curve ---
                     print('Removing spline')
+                    from autoeap.detrender import detrend_wrt_PDM
 
-                    splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time),
-                                                        strip_quantity(lclist[variableindex].corr_flux),
-                                                        window_length=window_length,
-                                                        sigma_lower=sigma_lower,
-                                                        sigma_upper=sigma_upper)
+                    splinedLC = detrend_wrt_PDM( strip_quantity(lclist[variableindex].time)+2454833,
+                                                    strip_quantity(lclist[variableindex].corr_flux),
+                                                    strip_quantity(lclist[variableindex].flux_err),
+                                                    polyorder=polyorder,
+                                                    sigma=sigma_detrend,
+                                                    show_plots=show_plots,
+                                                    save_plots=save_plots,
+                                                    filename=targettpf+'_plots/'+targettpf+'_detrend',
+                                                    debug=debug)
 
                     if save_lc:
                         # --- Save K2SC + spline corrected light curve ---
@@ -1273,7 +1709,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                         ascii.write(table,targettpf+'_c'+str(campaignnum)+'_autoEAP_k2sc_spline.lc',overwrite=True)
 
                     print('Done')
-                    return strip_quantity(lclist[variableindex].time), splinedLC, strip_quantity(lclist[variableindex].flux_err)
+                    return strip_quantity(lclist[variableindex].time)+2454833, splinedLC, strip_quantity(lclist[variableindex].flux_err)
 
                 if save_lc:
                     # --- Save K2SC corrected light curve ---
@@ -1285,7 +1721,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
                 print('Done')
 
-                return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].corr_flux), strip_quantity(lclist[variableindex].flux_err)
+                return strip_quantity(lclist[variableindex].time)+2454833, strip_quantity(lclist[variableindex].corr_flux), strip_quantity(lclist[variableindex].flux_err)
 
             break
 
@@ -1294,11 +1730,18 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     if remove_spline:
         # --- Remove spline from raw light curve ---
+        from autoeap.detrender import detrend_wrt_PDM
         print('Removing spline')
-        splinedLC, trendLC = splinecalc( strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux) ,
-                                        window_length=window_length,
-                                        sigma_lower=sigma_lower,
-                                        sigma_upper=sigma_upper)
+
+        splinedLC = detrend_wrt_PDM( strip_quantity(lclist[variableindex].time)+2454833,
+                                        strip_quantity(lclist[variableindex].flux),
+                                        strip_quantity(lclist[variableindex].flux_err),
+                                        polyorder=polyorder,
+                                        sigma=sigma_detrend,
+                                        show_plots=show_plots,
+                                        save_plots=save_plots,
+                                        filename=targettpf+'_plots/'+targettpf+'_detrend',
+                                        debug=debug)
 
         if save_lc:
             # --- Save spline corrected raw light curve ---
@@ -1310,7 +1753,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
         print('Done')
 
-        return strip_quantity(lclist[variableindex].time), splinedLC, strip_quantity(lclist[variableindex].flux_err)
+        return strip_quantity(lclist[variableindex].time)+2454833, splinedLC, strip_quantity(lclist[variableindex].flux_err)
 
     if save_lc:
         # --- Save raw light curve ---
@@ -1321,7 +1764,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
 
     print('Done')
 
-    return strip_quantity(lclist[variableindex].time), strip_quantity(lclist[variableindex].flux), strip_quantity(lclist[variableindex].flux_err)
+    return strip_quantity(lclist[variableindex].time)+2454833, strip_quantity(lclist[variableindex].flux), strip_quantity(lclist[variableindex].flux_err)
 
 
 #########################
@@ -1355,32 +1798,27 @@ def autoeap_from_commandline(args=None):
                            action='store_true',
                            help='After the raw or K2SC photomery, remove a '
                                 'low-order spline from the extracted light curve.')
-    parser.add_argument('--windowlength',
-                           metavar='<window-length-in-days>', type=float, default=20,
-                           help='The length of filter window for spline correction '
-                                'given in days. Default is 20 days.')
-    parser.add_argument('--sigmalower',
-                           metavar='<sigma-lower>', type=float, default=3,
-                           help='The number of standard deviations to use '
-                                'as the lower bound for sigma clipping limit '
-                                'before spline correction. Default is 3.')
-    parser.add_argument('--sigmaupper',
-                           metavar='<sigma-upper>', type=float, default=3,
-                           help='The number of standard deviations to use '
-                                'as the upper bound for sigma clipping limit '
-                                'before spline correction. Default is 3.')
-    parser.add_argument('--outlierratio',
-                           metavar='<outlier-ratio>', type=float, default=2.0,
-                           help='Missing value threshold in % below which '
-                                'position correction values (POS_CORR) are '
-                                'used for K2SC. Missing POS_CORR values will '
-                                'reduce the light curve points! Otherwise, '
-                                'less reliable photometrically estimated '
-                                'centroids will be used. Default is 2.')
+    parser.add_argument('--polyorder',
+                           metavar='<detrending-polynomial-order>', default='auto',
+                           help='The order of the detrending polynomial. '
+                                'Default is auto.')
+    parser.add_argument('--sigmadetrend',
+                           metavar='<detrending-sigma-limit>', type=float, default=10.0,
+                           help='The number of standard deviations to use for sigma '
+                                'clipping limit before spline correction. '
+                                'Default is 10.0')
     parser.add_argument('--saveplots',
                            action='store_true',
                            help='Save all the plots that show each step '
                                 'into a subdirectory.')
+    parser.add_argument('--maxmissingposcorr',
+                           metavar='<max-missing-pos-corr>', type=int, default=10,
+                           help='Maximum number of missing position correction '
+                                '(POS_CORR) values. If too many POS_CORR is '
+                                'missing, then less reliable photometrically '
+                                'estimated centroids will be used for K2SC. '
+                                'Missing POS_CORR values reduce the number of '
+                                'light curve points!')
     parser.add_argument('--TH',
                            metavar='<threshold-value>', type=float, default=8,
                            help='Threshold to segment each target in each TPF '
@@ -1402,17 +1840,15 @@ def autoeap_from_commandline(args=None):
 
     args = parser.parse_args(args)
 
-
     _ = createlightcurve(args.targettpf,
                     apply_K2SC=args.applyK2SC,
                     remove_spline=args.removespline,
                     save_lc=True,
                     campaign=args.campaign,
                     save_plots=args.saveplots,
-                    window_length=args.windowlength,
-                    sigma_lower=args.sigmalower,
-                    sigma_upper=args.sigmaupper,
-                    outlier_ratio=args.outlierratio,
+                    polyorder=args.polyorder,
+                    sigma_detrend=args.sigmadetrend,
+                    max_missing_pos_corr=args.maxmissingposcorr,
                     TH=args.TH,
                     ROI_lower=args.ROIlower,
                     ROI_upper=args.ROIupper)

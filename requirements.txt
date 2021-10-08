@@ -1,7 +1,7 @@
 numpy>=1.11
 scipy>=0.19.0,!=1.4.0,!=1.4.1
 matplotlib>=1.5.3
-lightkurve>=1.5,<=2.0.0
+lightkurve>=1.5,<2.0.0
 sklearn
 astropy>=4.1rc1
 wotan
@@ -9,4 +9,4 @@ tqdm>=4.25.0
 numba
 memoization
 oktopus
-astroquery
+astroquery!=0.4.2.dev0

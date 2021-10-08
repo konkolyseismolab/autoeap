@@ -67,8 +67,8 @@ def detrend(dataset,campaign=5,splits=None,quiet=False,save_dir='.',seed=0,flux_
     ## Define the splits
     ## -----------------
 
-    default_splits = {3:[2154,2190], 4:[2240,2273], 5:[2344], 6:[2390,2428], 7:[2468.5,2515], 8:[2578.51,2598.24], 102:[2778], 12:[2915,2951],
-                      13:[2998,3033],14:[3085,3123.75],15:[3170,3207.5],16:[3297.5,3331],17:[3367,3400],18:[3425,3460]}
+    default_splits = {0:[1938.1],1:[2021],2:[2102],3:[2154,2190], 4:[2240,2273], 5:[2344], 6:[2390,2428], 7:[2468.5,2515], 8:[2578.51,2598.24], 92:[2727.51],
+                      102:[2778], 112:[2862.25], 12:[2915,2951], 13:[2998,3033],14:[3085,3123.75],15:[3170,3207.5],16:[3297.5,3331],17:[3367,3400],18:[3425,3460],19:[]}
 
     if splits is None and ds.campaign not in default_splits.keys():
         print('The campaign not known and no splits given.')
@@ -298,15 +298,15 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
     lc.k2sc()
     '''
 
-    def get_k2data(self,outlier_ratio=2.0):
+    def get_k2data(self,max_missing_pos_corr=10,force_pos_corr=False):
         try:
             # --- Use POS_CORR if possible ---
             goodposcorr = None
             x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
 
             # --- Use Centroid if there are too many missing values ---
-            if np.sum(np.isfinite(x))/np.sum(np.isfinite(strip_quantity(self.time)))*100 > outlier_ratio or \
-            np.sum(np.isfinite(y))/np.sum(np.isfinite(strip_quantity(self.time)))*100 > outlier_ratio:
+            if np.sum(~np.isfinite(x)) > max_missing_pos_corr or \
+            np.sum(~np.isfinite(y)) > max_missing_pos_corr:
                 goodposcorr = np.sum(np.isfinite(x) & np.isfinite(y))
                 raise ValueError
         except:
@@ -315,6 +315,9 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
             # --- If POS_CORR missing values == Centroid missing values -> use POS_CORR ---
             if goodposcorr is not None and np.sum(np.isfinite(x) & np.isfinite(y)) == goodposcorr:
                 x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
+
+        if force_pos_corr:
+            x, y = strip_quantity(self.pos_corr1), strip_quantity(self.pos_corr2)
 
         dataset = K2Data(self.targetid,
                       time    = strip_quantity(self.time),
@@ -329,10 +332,10 @@ class k2sc_lc(lightkurve.KeplerLightCurve):
                       campaign       = self.campaign)
         return dataset
 
-    def k2sc(self,outlier_ratio=2.0,**kwargs):
+    def k2sc(self,max_missing_pos_corr=10,force_pos_corr=False,**kwargs):
         from astropy.units import UnitConversionError
 
-        dataset = self.get_k2data(outlier_ratio=outlier_ratio)
+        dataset = self.get_k2data(max_missing_pos_corr=max_missing_pos_corr,force_pos_corr=force_pos_corr)
         results = detrend(dataset,**kwargs) # see keyword arguments from detrend above
 
         if results == 0:

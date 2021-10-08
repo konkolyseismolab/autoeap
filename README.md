@@ -211,7 +211,7 @@ corrflux = detrend_wrt_PDM(time,               # Time values
                            sigma=10,           # Sigma value for sigma clipping before PDM calculation
                            show_plots=True,    # Show the detrending process
                            save_plots=False,   # Save the detrending process plot
-                           filename=None)      # using this directory/filename prefix
+                           filename=None)      # to this file as PNG.
 ```
 
 ## Contributing

@@ -120,7 +120,8 @@ def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False
     save_plots: bool, default: False
         If `True` the plot will be saved to a subdirectory.
     filename : string
-        If `save_plots` is `True`, the name of the output directory/file.
+        If `save_plots` is `True`, the name of the output PNG file,
+        without extension.
     debug : bool, default: False
         If `True` debug plots/prints will be displayed.
 
@@ -255,7 +256,7 @@ def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False
     ax4.set_xlabel('Phase')
 
     plt.tight_layout()
-    if save_plots and filename is not None: plt.savefig(filename+'_plots/'+filename+'_detrend.png',format='png',dpi=80)
+    if save_plots and filename is not None: plt.savefig(filename+'.png',format='png',dpi=80)
     if show_plots: plt.show()
     plt.close()
 

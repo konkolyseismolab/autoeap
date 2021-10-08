@@ -1696,7 +1696,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                                     sigma=sigma_detrend,
                                                     show_plots=show_plots,
                                                     save_plots=save_plots,
-                                                    filename=targettpf,
+                                                    filename=targettpf+'_plots/'+targettpf+'_detrend',
                                                     debug=debug)
 
                     if save_lc:
@@ -1740,7 +1740,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                                         sigma=sigma_detrend,
                                         show_plots=show_plots,
                                         save_plots=save_plots,
-                                        filename=targettpf,
+                                        filename=targettpf+'_plots/'+targettpf+'_detrend',
                                         debug=debug)
 
         if save_lc:

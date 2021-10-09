@@ -20,7 +20,7 @@ A short summary of automatization is published [here](https://ui.adsabs.harvard.
 To install the package, use:
 
 ```bash
-pip install numpy cython autoeap
+pip install autoeap
 ```
 
 ## Example usage

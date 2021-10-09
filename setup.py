@@ -1,6 +1,6 @@
 from os import path
 import sys
-from distutils.core import setup
+from setuptools import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
 
@@ -35,7 +35,7 @@ extensions = Extension("PDM",
                          libraries=['m'],
                          define_macros=[('NPY_NO_DEPRECATED_API', 'NPY_1_7_API_VERSION')])
 
-desc='Automated version of Extended Aperture Photometry developed for K2 RR Lyrae stars.'
+desc='Automated version of Extended Aperture Photometry developed for high amplitude K2 variable stars.'
 
 setup(name='autoeap',
       version=__version__,

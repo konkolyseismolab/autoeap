@@ -1,10 +1,10 @@
 <div align="center">
-<img src="docs/autoeap_logo.png" width="50%">
+<img src="https://raw.githubusercontent.com/konkolyseismolab/autoeap/master/docs/autoeap_logo.png" width="50%">
 
 ## **Automated Extended Aperture Photometry**
 
 [![pip](https://img.shields.io/badge/pip-install%20autoeap-blue.svg)](https://pypi.org/project/autoeap/)
-[![Image](https://img.shields.io/badge/tutorials-%E2%9C%93-blue.svg)](https://github.com/zabop/autoeap/tree/master/examples)
+[![Image](https://img.shields.io/badge/tutorials-%E2%9C%93-blue.svg)](https://github.com/konkolyseismolab/autoeap/tree/master/examples)
 [![Image](https://img.shields.io/badge/arXiv-1909.00446-blue.svg)](https://arxiv.org/abs/1909.00446)
 [![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
 
@@ -25,7 +25,7 @@ pip install autoeap
 
 ## Example usage
 
-To create your own photomery, you'll need a Target Pixel File, such as [this one.](https://github.com/zabop/autoeap/blob/master/examples/ktwo212466080-c17_lpd-targ.fits)
+To create your own photomery, you'll need a Target Pixel File, such as [this one.](https://github.com/konkolyseismolab/autoeap/blob/master/examples/ktwo212466080-c17_lpd-targ.fits)
 Then, after starting Python, you can do:
 
 ```python
@@ -58,11 +58,11 @@ plt.xlabel('KBJD')
 plt.ylabel('Flux')
 plt.show()
 ```
-![example scatter plot2](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_raw.jpg)
+![example scatter plot2](https://raw.githubusercontent.com/konkolyseismolab/autoeap/master/docs/ktwo212466080-c17_raw.jpg)
 
-The details of the workflow is described in [docs](https://github.com/zabop/autoeap/tree/master/docs).
+The details of the workflow is described in [docs](https://github.com/konkolyseismolab/autoeap/tree/master/docs).
 
-You can find Google Colab friendly tutorials [in the examples](https://github.com/zabop/autoeap/tree/master/examples).
+You can find Google Colab friendly tutorials [in the examples](https://github.com/konkolyseismolab/autoeap/tree/master/examples).
 
 ### Apply K2 Systematics Correction (K2SC)
 If you want to apply K2SC correction for your freshly made raw-photometry, first you should install [K2SC](https://github.com/OxES/k2sc). AutoEAP is based on that package, so if you find K2SC useful, please cite [Aigrain et al.,2016,MNRAS,459,2408](https://ui.adsabs.harvard.edu/abs/2016MNRAS.459.2408A/abstract).
@@ -91,7 +91,7 @@ plt.xlabel('KBJD')
 plt.ylabel('Flux')
 plt.show()
 ```
-![k2sc result](https://raw.githubusercontent.com/zabop/autoeap/master/docs/ktwo212466080-c17_k2sc.jpg)
+![k2sc result](https://raw.githubusercontent.com/konkolyseismolab/autoeap/master/docs/ktwo212466080-c17_k2sc.jpg)
 
 ### Apply spline correction
 We have also built-in a method to remove trends using low-order splines. To correct the raw light curve, do:

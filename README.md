@@ -7,6 +7,7 @@
 [![Image](https://img.shields.io/badge/tutorials-%E2%9C%93-blue.svg)](https://github.com/konkolyseismolab/autoeap/tree/master/examples)
 [![Image](https://img.shields.io/badge/arXiv-1909.00446-blue.svg)](https://arxiv.org/abs/1909.00446)
 [![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
+[![DOI](https://zenodo.org/badge/315947020.svg)](https://zenodo.org/badge/latestdoi/315947020)
 
 </div>
 

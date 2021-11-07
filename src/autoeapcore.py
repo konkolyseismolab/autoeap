@@ -1280,6 +1280,7 @@ def PDM_theta(lc,testf):
 
 def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
+                        save_aperture=False,
                         polyorder='auto', sigma_detrend=10,
                         max_missing_pos_corr=10,
                         TH=8, ROI_lower=100, ROI_upper=0.85,
@@ -1305,6 +1306,8 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         also `True`, then this step will be done after the K2SC.
     save_lc: bool, default: False
         If `True` the final light curve will be save as a file.
+    save_aperture: bool, default: False
+        If `True` the final aperture will be saved to a FITS file.
     campaign : int, default: None
         If local TPF file is not found, it will be downloaded from MAST, but
         ``campaign`` number should be defined as well, if the target has been
@@ -1530,6 +1533,14 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                 if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpfplot_final_aperture.png',dpi=200)
                 if show_plots: plt.show()
                 plt.close(fig)
+
+            if save_aperture:
+                from autoeap.aperture_to_fits import save_aperture_fits
+
+                print('Saving aperture as '+targettpf+'_c'+str(campaignnum)+'_autoEAP_aperture.fits')
+                save_aperture_fits(finalmask,
+                                    targettpf+'_c'+str(campaignnum)+'_autoEAP_aperture.fits',
+                                    overwrite=True)
 
 
             if apply_K2SC:
@@ -1846,6 +1857,7 @@ def autoeap_from_commandline(args=None):
                     save_lc=True,
                     campaign=args.campaign,
                     save_plots=args.saveplots,
+                    save_aperture=True,
                     polyorder=args.polyorder,
                     sigma_detrend=args.sigmadetrend,
                     max_missing_pos_corr=args.maxmissingposcorr,

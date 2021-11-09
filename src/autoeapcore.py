@@ -92,6 +92,8 @@ def get_gaia(tpf, magnitude_limit=18):
 
 def query_sdss(tpf,c,rad_arcsec):
     import sys
+    import requests
+    from time import sleep
 
     class HiddenPrints:
         def __enter__(self):

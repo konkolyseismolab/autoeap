@@ -69,7 +69,8 @@ def get_gaia(tpf, magnitude_limit=18):
 
     # Query SDSS for galaxies in TPF
     try:
-        sdssquery,sdsscoords = query_sdss(tpf,c1,rad)
+        with warnings.catch_warnings(record=True) as w:
+            sdssquery,sdsscoords = query_sdss(tpf,c1,rad)
         result = result.append(sdssquery,ignore_index=True)
         coords = np.concatenate((coords,sdsscoords))
     except:
@@ -91,7 +92,7 @@ def get_gaia(tpf, magnitude_limit=18):
     return data
 
 def query_sdss(tpf,c,rad_arcsec):
-    import sys
+    import sys, os
     import requests
     from time import sleep
 
@@ -936,12 +937,13 @@ def CreateMaskCorona(mask):
 
     return mask_placeholder
 
-def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,initialmask,tpf,
+def optimize_aperture_wrt_PDM(lclist,variableindex,gapfilledaperturelist,initialmask,tpf,
                                targettpf='',
                                save_plots=False,
                                show_plots=False,
                                debug=False):
 
+    # Get period for PDM analysis
     goodpts = np.isfinite(strip_quantity(lclist[variableindex].flux))
     t = lclist[variableindex].time[goodpts]
     y = lclist[variableindex].flux[goodpts]
@@ -971,9 +973,8 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
 
     newfinallc = None
 
-    initialcdpp = strip_quantity(lclist[variableindex].estimate_cdpp())
     initialPDM  = PDM_theta(lclist[variableindex],testf)
-    print('Initial CDPP & PDM theta=',  initialcdpp, initialPDM)
+    print('Initial PDM theta = %.4f' % initialPDM)
 
     #initialmaskall = np.sum(initialmask, axis=0, dtype=bool)
     #initialmask = np.sum(initialmask, axis=0, dtype=bool)
@@ -987,9 +988,8 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
     #newcorona[gapfilledaperturelist[variableindex]] = False
     umcorona = np.where(newcorona)
 
-    # Loop over the pixels in corona and calculate CDPP for each extended aperture
-    cdpp_list = []
-    cdpp_ij_list = []
+    # Loop over the pixels in corona and calculate PDM for each extended aperture
+    pixel_ij_list = []
     PDMtheta_list = []
     for ii,jj in zip(umcorona[0],umcorona[1]):
 
@@ -1003,7 +1003,7 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
         newmask[ ii,jj ] = True
 
         if debug:
-            print('Checking CDPP with +1 pixel adjacent pixels (dashed orange)')
+            print('Checking PDM with +1 adjacent pixel (dashed orange)')
             fig = tpfplot(tpf,tpf.shape[0]//2,initialmask,None)
             filtered=apdrawer(newmask*1)
             for x in range(len(filtered)):
@@ -1015,12 +1015,10 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
             plt.close(fig)
 
         newlc = tpf.to_lightcurve(aperture_mask=newmask)
-        lccdpp = strip_quantity(newlc.estimate_cdpp())
-        lcPDM  = PDM_theta(newlc,testf)
-        if debug: print('New CDPP & PDM theta =', lccdpp, lcPDM )
+        lcPDM = PDM_theta(newlc,testf)
+        if debug: print('New PDM theta = %.4f' % lcPDM )
 
-        cdpp_list.append( strip_quantity(lccdpp) )
-        cdpp_ij_list.append( [ii,jj] )
+        pixel_ij_list.append( [ii,jj] )
         PDMtheta_list.append( lcPDM )
 
         if debug:
@@ -1046,53 +1044,32 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
             del lc2plot
             del lc2plot2
 
-    cdpp_list = np.array(cdpp_list)
     PDMtheta_list = np.array(PDMtheta_list)
 
-    # Check if new aperture's CDPP and PDM theta is better with at least 2.5-sigma
+    # Check if new aperture's PDM theta is lower at least by 0.002 theta
     append_pixels = False
-    if len(cdpp_list) > 0:
-        bestcdpp = np.argmin(cdpp_list)
+    if len(PDMtheta_list) > 0:
         bestPDM  = np.argmin(PDMtheta_list)
-    if len(cdpp_list)>0 and cdpp_list[bestPDM] < initialcdpp-2.5*np.std(cdpp_list) and PDMtheta_list[bestPDM] <= initialPDM:
-        # Check at lowest PDM theta
-        append_pixels = True
-        bestat = bestPDM
-    elif len(cdpp_list)>0 and PDMtheta_list[bestPDM] < initialPDM-3.0*np.std(PDMtheta_list) and cdpp_list[bestPDM] < initialcdpp:
-        # Check at lowest PDM theta if theta has a significant lower point
-        append_pixels = True
-        bestat = bestPDM
-    elif len(cdpp_list)>0 and cdpp_list[bestcdpp] < initialcdpp-2.5*np.std(cdpp_list) and PDMtheta_list[bestcdpp] <= initialPDM:
-        # Check at lowest CDPP
-        append_pixels = True
-        bestat = bestcdpp
-    elif len(cdpp_list)>0 and cdpp_list[bestPDM] < initialcdpp and PDMtheta_list[bestPDM] < initialPDM:
-        # Check at lowest PDM theta
+    if len(PDMtheta_list)>0 and PDMtheta_list[bestPDM] < initialPDM - 0.002:
         append_pixels = True
         bestat = bestPDM
 
     if debug:
-        plt.title('CDPPs after adding +1-1 pixels from adjacent pixels')
-        plt.plot(cdpp_list)
-        plt.axhline(initialcdpp,c='r',zorder=0,label='Initial CDPP')
-        plt.axhline(initialcdpp-2.5*np.std(cdpp_list),c='lightgray',zorder=0,ls='--',label='CDPP threshold')
+        plt.title('PDMs after adding +1-1 pixels from adjacent pixels')
+        plt.plot(PDMtheta_list)
+        plt.axhline(initialPDM,c='r',zorder=0,label='Initial PDM')
+        plt.axhline(initialPDM- 0.002,c='lightgray',zorder=0,ls='--',label='PDM threshold')
         if append_pixels: plt.axvline(bestat,c='g',zorder=0)
-        plt.xlabel('Final aperture + 1 pixel adjacent pixels')
-        plt.ylabel('CDPP')
+        plt.xlabel('Final aperture w/ +1 adjacent pixel')
+        plt.ylabel('PDM $\theta$')
         plt.legend()
-        ax2 = plt.twinx()
-        ax2.plot(PDMtheta_list,c='C1')
-        ax2.set_ylabel('PDM theta')
-        plt.axhline(initialPDM,c='C1',zorder=0,alpha=0.5)
-        ax2.axhline(initialPDM-3*np.std(PDMtheta_list),c='C1',alpha=0.5,zorder=0,ls='--')
-        ax2.yaxis.label.set_color('C1')
         plt.show()
 
     if append_pixels:
-        print('Extending aperture with new CDPP & PDM theta',cdpp_list[bestat],PDMtheta_list[bestat])
+        print('Extending aperture with new PDM theta: %.4f' % PDMtheta_list[bestat])
         newmask_pixels = []
 
-        i0,j0 = cdpp_ij_list[bestat]
+        i0,j0 = pixel_ij_list[bestat]
         #umcorona[0][bestat], umcorona[1][bestat]
         newmask_pixels.append([i0,j0])
 
@@ -1103,7 +1080,7 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
         # Get location of adjacents pixels of the best additional pixel
         adjacent_pixels = np.where( (np.abs(umcorona[0]-i0)<=1) & (np.abs(umcorona[1]-j0)<=1) )[0]
 
-        # Check if adding additional adjacents pixel(s) improve the CDPP and PDM theta
+        # Check if adding additional adjacents pixel(s) improve the PDM theta
         for adjpix in adjacent_pixels:
             iadj = umcorona[0][adjpix]
             jadj = umcorona[1][adjpix]
@@ -1114,13 +1091,13 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
             newmask[gapfilledaperturelist[variableindex]] = True
 
             newlc = tpf.to_lightcurve(aperture_mask=newmask)
-            lccdpp = strip_quantity(newlc.estimate_cdpp())
             lcPDM  = PDM_theta(newlc,testf)
 
-            if lccdpp < cdpp_list[bestat] and lcPDM <= PDMtheta_list[bestat]:
-                if debug: print('Adding another pixel to new aperture with new CDPP & PDM theta =',lccdpp,lcPDM)
+            if lcPDM < PDMtheta_list[bestat]:
+                if debug: print('Adding another pixel to new aperture with new PDM theta = %.4f' % lcPDM)
                 newmask_pixels.append([iadj,jadj])
 
+        # Create new mask with the adjacent pixels added
         newmask = np.full_like(newcorona,False,dtype=bool)
         for (ii,jj) in newmask_pixels:
             newmask[ ii,jj ] = True
@@ -1151,7 +1128,7 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
             axs[1].set_ylabel('Flux')
             axs[1].set_title('The lc after aperture size optimization')
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_after_CDPP_correction.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_lc_after_PDM_optimization.png')
             if show_plots: plt.show()
             plt.close(fig)
 
@@ -1164,11 +1141,11 @@ def optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,in
                 plt.plot(filtered[x][0],filtered[x][1],linewidth=4,ls='--',c='C1')
 
             plt.tight_layout()
-            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpf_aperture_after_CDPP_correction.png')
+            if save_plots: plt.savefig(targettpf+'_plots/'+targettpf+'_tpf_aperture_after_PDM_optimization.png')
             if show_plots: plt.show()
             plt.close(fig)
     else:
-         print('Keeping aperture with initial CDPP')
+         print('Keeping aperture with initial PDM')
 
     if newfinallc is not None:
         # Update final lc with the newly extended one
@@ -1515,7 +1492,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
             # Optimizing final aperture by checking CDPP for different aperture sizes
             # -----------------------------------------------------------------------
             print('Optimizing final aperture')
-            lslist, finalmask = optimize_aperture_wrt_CDPP_PDM(lclist,variableindex,gapfilledaperturelist,
+            lslist, finalmask = optimize_aperture_wrt_PDM(lclist,variableindex,gapfilledaperturelist,
                                                                gapfilledaperturelist_initial,tpf,
                                                                targettpf=targettpf,
                                                                save_plots=save_plots,

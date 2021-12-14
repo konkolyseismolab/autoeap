@@ -1784,7 +1784,7 @@ def autoeap_from_commandline(args=None):
                            action='store_true',
                            help='After the raw photomery, apply K2SC to remove '
                                 'systematics from the extracted light curve.')
-    parser.add_argument('--removespline',
+    parser.add_argument('--detrend',
                            action='store_true',
                            help='After the raw or K2SC photomery, remove a '
                                 'low-order spline from the extracted light curve.')

@@ -157,7 +157,7 @@ optional arguments:
   --campaign <campaign-number>
                         If the target has been observed in more than one campaign, download this light curve. If not given, the first campaign will be downloaded.
   --applyK2SC           After the raw photomery, apply K2SC to remove systematics from the extracted light curve.
-  --removespline        After the raw or K2SC photomery, remove a low-order spline from the extracted light curve.
+  --detrend             After the raw or K2SC photomery, remove a low-order spline from the extracted light curve.
   --polyorder <detrending-polynomial-order>
                         The order of the detrending polynomial. Default is auto.
   --sigmadetrend <detrending-sigma-limit>

@@ -1257,7 +1257,7 @@ def PDM_theta(lc,testf):
 # Main function
 ################
 
-def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=False, campaign=None,
+def createlightcurve(targettpf, apply_K2SC=False, detrend=False, save_lc=False, campaign=None,
                         show_plots=False, save_plots=False,
                         save_aperture=False,
                         polyorder='auto', sigma_detrend=10,
@@ -1279,7 +1279,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     apply_K2SC : bool, default: False
         If `True` after the raw photomery, K2SC will be applied to remove
         systematics from the extracted light curve.
-    remove_spline : bool, default: False
+    detrend : bool, default: False
         If `True` after the raw photomery, a low-order spline will be fitted
         and removed from the extracted light curve. If ``apply_K2SC`` is
         also `True`, then this step will be done after the K2SC.
@@ -1297,11 +1297,11 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         If `True` all the plots will be saved to a subdirectory.
     polyorder : int or 'auto', default: 'auto'
         The order of the detrending polynomial. Applies only
-        if ``remove_spline`` is `True`.
+        if ``detrend`` is `True`.
     sigma_detrend: float, default: 10
         The number of standard deviations to use for sigma
         clipping limit before spline correction. Applies only
-        if ``remove_spline`` is `True`.
+        if ``detrend`` is `True`.
     max_missing_pos_corr: int, default: 10
         Maximum number of missing position correction (POS_CORR) values.
         If too many POS_CORR is missing, then less reliable photometrically
@@ -1330,7 +1330,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
         Time values
     flux : array-like
         Raw flux values or K2SC corrected flux values, if ``apply_K2SC``
-        is `True` or spline removed raw/K2SC flux values, if ``remove_spline``
+        is `True` or spline removed raw/K2SC flux values, if ``detrend``
         is `True`
     flux_err : array-like
         Flux error values
@@ -1674,7 +1674,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
                     if show_plots: plt.show()
                     plt.close(fig)
 
-                if remove_spline:
+                if detrend:
                     # --- Remove spline from K2SC corrected light curve ---
                     print('Removing spline')
                     from autoeap.detrender import detrend_wrt_PDM
@@ -1718,7 +1718,7 @@ def createlightcurve(targettpf, apply_K2SC=False, remove_spline=False, save_lc=F
     # --- Removing outliers before saving light curve (or removing spline) ---
     lclist[variableindex] = lclist[variableindex].remove_nans().remove_outliers()
 
-    if remove_spline:
+    if detrend:
         # --- Remove spline from raw light curve ---
         from autoeap.detrender import detrend_wrt_PDM
         print('Removing spline')
@@ -1832,7 +1832,7 @@ def autoeap_from_commandline(args=None):
 
     _ = createlightcurve(args.targettpf,
                     apply_K2SC=args.applyK2SC,
-                    remove_spline=args.removespline,
+                    detrend=args.detrend,
                     save_lc=True,
                     campaign=args.campaign,
                     save_plots=args.saveplots,

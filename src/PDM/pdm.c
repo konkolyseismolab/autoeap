@@ -14,7 +14,7 @@ double GAUSSIAN(double x){
 }
 
 double PHASE(double x, double f){
-  return x * f - floorf(x * f);
+  return x * f - floor(x * f);
 }
 
 double phase_diff(

@@ -13,7 +13,7 @@
 
 --------------------------------------------------------------------------------
 
-The Automated Extended Aperture Photometry (autoEAP) is developed for high amplitude K2 variable stars. The details of autoEAP are published in [Bódi et al.,2021,PASP,accepted](https://arxiv.org/abs/2112.07496v1) and [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract).
+The Automated Extended Aperture Photometry (autoEAP) is developed for high amplitude K2 variable stars. The details of autoEAP are published in [Bódi et al.,2022,PASP,134,14503](https://ui.adsabs.harvard.edu/abs/2022PASP..134a4503B) and [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract).
 A short summary of automatization is published [here](https://ui.adsabs.harvard.edu/abs/2020arXiv200908786P/abstract).
 
 # Installation and dependencies
@@ -220,21 +220,24 @@ corrflux = detrend_wrt_PDM(time,               # Time values
 Feel free to open PR / Issue, or contact us [here](bodi.attila@csfk.org) or [here](ps738@cam.ac.uk).
 
 ## Citing
-If you use data provided by this pipeline please cite [Bódi et al.,2021,PASP,accepted](https://arxiv.org/abs/2112.07496v1) and [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract). Here are the BibTeX sources:
+If you use data provided by this pipeline please cite [Bódi et al.,2022,PASP,134,14503](https://ui.adsabs.harvard.edu/abs/2022PASP..134a4503B) and [Plachy et al.,2019,ApJS,244,32](https://ui.adsabs.harvard.edu/abs/2019ApJS..244...32P/abstract). Here are the BibTeX sources:
 ```
-@ARTICLE{2021arXiv211207496B,
+@ARTICLE{2022PASP..134a4503B,
        author = {{B{\'o}di}, Attila and {Szab{\'o}}, P{\'a}l and {Plachy}, Emese and {Moln{\'a}r}, L{\'a}szl{\'o} and {Szab{\'o}}, R{\'o}bert},
-        title = "{Automated Extended Aperture Photometry of K2 variable stars}",
-      journal = {arXiv e-prints},
-     keywords = {Astrophysics - Instrumentation and Methods for Astrophysics, Astrophysics - Solar and Stellar Astrophysics},
-         year = 2021,
-        month = dec,
-          eid = {arXiv:2112.07496},
-        pages = {arXiv:2112.07496},
+        title = "{Automated Extended Aperture Photometry of K2 Variable Stars}",
+      journal = {\pasp},
+     keywords = {1307, 1620, 1855, Astrophysics - Instrumentation and Methods for Astrophysics, Astrophysics - Solar and Stellar Astrophysics},
+         year = 2022,
+        month = jan,
+       volume = {134},
+       number = {1031},
+          eid = {014503},
+        pages = {014503},
+          doi = {10.1088/1538-3873/ac4398},
 archivePrefix = {arXiv},
        eprint = {2112.07496},
  primaryClass = {astro-ph.IM},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2021arXiv211207496B},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2022PASP..134a4503B},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 

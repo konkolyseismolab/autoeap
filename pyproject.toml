@@ -4,6 +4,6 @@ requires = [
     "wheel",
     "cython",
     "numpy",
-    "sklearn"
+    "scikit-learn"
 ]
 build-backend = "setuptools.build_meta"

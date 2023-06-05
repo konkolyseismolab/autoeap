@@ -101,7 +101,7 @@ def clean_lightcurve(x,y,sigma=4,plotting=False):
     return  goodpts
 
 
-def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False,save_plots=False,filename=None,debug=False):
+def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,period=None,show_plots=False,save_plots=False,filename=None,debug=False):
     """
     Deterending with a polynomial that is fitted w.r.t. phase dispersion minimization.
 
@@ -115,6 +115,13 @@ def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False
         Corresponding flux errors.
     polyorder : int , default : 9
         The order of the detrending polynomial.
+    sigma : float, default : 10
+        The number of standard deviations to use for sigma
+        clipping limit before spline correction.
+    period : float, optional
+        The period, which is used to phase fold
+        the light curve. If not given, the period
+        is derived using a Lomb-Scargle periodogram.
     show_plots: bool, default: False
         If `True` the plot will be displayed.
     save_plots: bool, default: False
@@ -159,25 +166,28 @@ def detrend_wrt_PDM(time,flux,fluxerr,polyorder='auto',sigma=10,show_plots=False
     err = err[goodpts]
 
     # Get period
-    lsfreqs,lspow = LombScargle(x,y).autopower(nyquist_factor=1,samples_per_peak=50,minimum_frequency=0.05)
-    testf = lsfreqs[np.argmax(lspow)]
-
-    # If test period is larger than data length, remove linear
-    if testf <= 1/np.ptp(x):
-        y -= np.poly1d(np.polyfit(x,y,1))(x)
-
-        lsfreqs,lspow = LombScargle(x,y).autopower(normalization='psd',
-                                                nyquist_factor=1,
-                                                minimum_frequency=0.05,
-                                                samples_per_peak=50)
-
+    if period is None:
+        lsfreqs,lspow = LombScargle(x,y).autopower(nyquist_factor=1,samples_per_peak=50,minimum_frequency=0.05)
         testf = lsfreqs[np.argmax(lspow)]
 
-        # If period is still larger than data length
+        # If test period is larger than data length, remove linear
         if testf <= 1/np.ptp(x):
-            testf = 1/np.ptp(x)
+            y -= np.poly1d(np.polyfit(x,y,1))(x)
 
-    del lsfreqs,lspow
+            lsfreqs,lspow = LombScargle(x,y).autopower(normalization='psd',
+                                                    nyquist_factor=1,
+                                                    minimum_frequency=0.05,
+                                                    samples_per_peak=50)
+
+            testf = lsfreqs[np.argmax(lspow)]
+
+            # If period is still larger than data length
+            if testf <= 1/np.ptp(x):
+                testf = 1/np.ptp(x)
+
+        del lsfreqs,lspow
+    else:
+        testf = 1/period
 
     if debug:
         print('Best period is', round(1/testf,8),'days' )
